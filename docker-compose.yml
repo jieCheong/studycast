@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: studycast-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: studycast
+      POSTGRES_PASSWORD: localdevpassword
+      POSTGRES_DB: studycast
+    ports:
+     - "5432:5432"
+    volumes:
+     - studycast_pgdata:/var/lib/postgresql/data
+volumes:
+  studycast_pgdata:

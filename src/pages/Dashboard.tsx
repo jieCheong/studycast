@@ -1,0 +1,610 @@
+import { useState, useCallback, useEffect, useRef } from "react";
+import { FunctionsHttpError } from "@supabase/supabase-js";
+import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
+import { Upload, FileText, Headphones, Download, LogOut, RotateCcw, X, Video as YoutubeIcon, History } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+type JobStatus = "idle" | "uploading" | "extracting" | "generating-script" | "generating-audio" | "complete" | "failed";
+type SourceType = "pdf" | "youtube";
+
+const FREE_LIMIT = 3;
+
+const statusLabels: Record<JobStatus, string> = {
+  idle: "",
+  uploading: "Uploading file...",
+  extracting: "Extracting text...",
+  "generating-script": "Generating script with AI...",
+  "generating-audio": "Creating audio with ElevenLabs...",
+  complete: "Complete!",
+  failed: "Generation failed",
+};
+
+const statusProgress: Record<JobStatus, number> = {
+  idle: 0,
+  uploading: 10,
+  extracting: 25,
+  "generating-script": 50,
+  "generating-audio": 75,
+  complete: 100,
+  failed: 0,
+};
+
+const voiceMap: Record<string, string> = {
+  lecture: "nPczCjzI2devNBz1zQrb",   // Brian
+  podcast: "cjVigY5qzO86Huf0OWal",   // Eric
+  calm: "EXAVITQu4vr4xnSDxMaL",      // Sarah
+  energetic: "TX3LPaxmHKxFdv7VOQHJ",  // Liam
+};
+
+const ACCEPTED_EXTENSIONS = [".pdf", ".pptx", ".docx", ".ppt", ".doc"];
+const isAcceptedFile = (f: File) => {
+  const name = f.name.toLowerCase();
+  return ACCEPTED_EXTENSIONS.some((ext) => name.endsWith(ext));
+};
+
+type RecentItem = {
+  id: string;
+  audio_url: string | null;
+  created_at: string;
+  filename: string;
+};
+
+const getFunctionErrorMessage = async (error: unknown, fallback: string) => {
+  if (error instanceof FunctionsHttpError) {
+    try {
+      const body = await error.context.json();
+      if (typeof body?.error === "string" && body.error.trim()) {
+        return body.error;
+      }
+    } catch {
+      try {
+        const text = await error.context.text();
+        if (text.trim()) return text;
+      } catch {
+        // Ignore parse failures and fall back below.
+      }
+    }
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return fallback;
+};
+
+export default function Dashboard() {
+  const { user, signOut } = useAuth();
+  const { toast } = useToast();
+
+  const [file, setFile] = useState<File | null>(null);
+  const [source, setSource] = useState<SourceType>("pdf");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [mode, setMode] = useState<string>("understanding");
+  const [language, setLanguage] = useState<string>("English");
+  const [length, setLength] = useState<string>("10");
+  const [voice, setVoice] = useState<string>("lecture");
+
+  const [status, setStatus] = useState<JobStatus>("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [transcript, setTranscript] = useState("");
+  const [audioUrl, setAudioUrl] = useState("");
+  const [playbackRate, setPlaybackRate] = useState<string>("1");
+
+  const [generationCount, setGenerationCount] = useState<number>(0);
+  const [recent, setRecent] = useState<RecentItem[]>([]);
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioCardRef = useRef<HTMLDivElement | null>(null);
+
+  const loadUsage = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("generation_count")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (data) setGenerationCount(data.generation_count ?? 0);
+  }, [user]);
+
+  const loadRecent = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("outputs")
+      .select("id, audio_url, created_at, jobs!inner(user_id, upload_id, uploads(filename))")
+      .eq("jobs.user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(5);
+    if (data) {
+      setRecent(
+        data.map((row: any) => ({
+          id: row.id,
+          audio_url: row.audio_url,
+          created_at: row.created_at,
+          filename: row.jobs?.uploads?.filename ?? "Generation",
+        }))
+      );
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadUsage();
+    loadRecent();
+  }, [loadUsage, loadRecent]);
+
+  // Auto-scroll to audio + apply playback rate
+  useEffect(() => {
+    if (status === "complete" && audioCardRef.current) {
+      audioCardRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [status]);
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = parseFloat(playbackRate);
+  }, [playbackRate, audioUrl]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const dropped = e.dataTransfer.files[0];
+    if (dropped && isAcceptedFile(dropped)) {
+      setFile(dropped);
+    } else {
+      toast({ title: "Invalid file", description: "Please upload a PDF, PPTX or DOCX file.", variant: "destructive" });
+    }
+  }, [toast]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (selected && isAcceptedFile(selected)) {
+      setFile(selected);
+    }
+  };
+
+  const resetState = () => {
+    setFile(null);
+    setYoutubeUrl("");
+    setStatus("idle");
+    setErrorMsg("");
+    setTranscript("");
+    setAudioUrl("");
+  };
+
+  const limitReached = generationCount >= FREE_LIMIT;
+
+  const handleGenerate = async () => {
+    if (!user) return;
+    if (limitReached) return;
+    if (source === "pdf" && !file) return;
+    if (source === "youtube" && !youtubeUrl.trim()) return;
+
+    try {
+      let uploadId: string;
+      let extractedText = "";
+      let displayFilename = "";
+
+      if (source === "pdf" && file) {
+        // Upload file
+        setStatus("uploading");
+        const filePath = `${user.id}/${Date.now()}_${file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from("pdf-uploads")
+          .upload(filePath, file);
+        if (uploadError) throw uploadError;
+
+        const { data: upload, error: uploadRecordError } = await supabase
+          .from("uploads")
+          .insert({ user_id: user.id, filename: file.name, file_path: filePath })
+          .select()
+          .single();
+        if (uploadRecordError) throw uploadRecordError;
+        uploadId = upload.id;
+        displayFilename = file.name;
+
+        setStatus("extracting");
+        const { data: extractResult, error: extractError } = await supabase.functions.invoke("process-pdf", {
+          body: { uploadId, filePath },
+        });
+        if (extractError) throw new Error(await getFunctionErrorMessage(extractError, "File extraction failed"));
+        extractedText = extractResult.text;
+      } else {
+        // YouTube flow
+        setStatus("extracting");
+        const { data: ytResult, error: ytError } = await supabase.functions.invoke("fetch-youtube", {
+          body: { youtubeUrl: youtubeUrl.trim() },
+        });
+        if (ytError) throw new Error(await getFunctionErrorMessage(ytError, "Could not fetch YouTube transcript"));
+        extractedText = ytResult.text;
+        displayFilename = `YouTube: ${ytResult.videoId}`;
+
+        const { data: upload, error: uploadRecordError } = await supabase
+          .from("uploads")
+          .insert({ user_id: user.id, filename: displayFilename })
+          .select()
+          .single();
+        if (uploadRecordError) throw uploadRecordError;
+        uploadId = upload.id;
+      }
+
+      // Create job record
+      const { data: job, error: jobError } = await supabase
+        .from("jobs")
+        .insert({
+          upload_id: uploadId,
+          user_id: user.id,
+          mode: mode as "memorization" | "understanding",
+          language,
+          length: parseInt(length),
+          voice,
+        })
+        .select()
+        .single();
+      if (jobError) throw jobError;
+
+      // Step 2: Generate script
+      setStatus("generating-script");
+      const { data: scriptResult, error: scriptError } = await supabase.functions.invoke("generate-script", {
+        body: {
+          jobId: job.id,
+          extractedText,
+          mode,
+          language,
+          length: parseInt(length),
+        },
+      });
+      if (scriptError) throw new Error(await getFunctionErrorMessage(scriptError, "Script generation failed"));
+      setTranscript(scriptResult.transcript);
+
+      // Step 3: Generate audio
+      setStatus("generating-audio");
+      const { data: audioResult, error: audioError } = await supabase.functions.invoke("generate-audio", {
+        body: {
+          jobId: job.id,
+          transcript: scriptResult.transcript,
+          voiceId: voiceMap[voice],
+        },
+      });
+      if (audioError) throw new Error(await getFunctionErrorMessage(audioError, "Audio generation failed"));
+      setAudioUrl(audioResult.audioUrl);
+      setStatus("complete");
+
+      // Increment free-tier usage counter and refresh data
+      await supabase
+        .from("profiles")
+        .update({ generation_count: generationCount + 1 })
+        .eq("user_id", user.id);
+      setGenerationCount((n) => n + 1);
+      loadRecent();
+
+      toast({ title: "Audio ready!", description: "Your study audio has been generated." });
+    } catch (error: any) {
+      console.error("Generation error:", error);
+      const message = error instanceof Error ? error.message : "Something went wrong";
+      setStatus("failed");
+      setErrorMsg(message);
+      toast({ title: "Generation failed", description: message, variant: "destructive" });
+    }
+  };
+
+  const isProcessing = !["idle", "complete", "failed"].includes(status);
+  const canGenerate =
+    !limitReached && (source === "pdf" ? !!file : youtubeUrl.trim().length > 0);
+
+  return (
+    <TooltipProvider>
+    <div className="min-h-screen">
+      {/* Header */}
+      <nav className="flex items-center justify-between px-6 py-4 max-w-5xl mx-auto">
+        <span className="text-xl font-bold font-['Space_Grotesk'] tracking-tight">
+          StudyCast<span className="text-primary">AI</span>
+        </span>
+        <div className="flex items-center gap-3">
+          <Badge variant={limitReached ? "destructive" : "secondary"} className="hidden sm:inline-flex">
+            {Math.min(generationCount, FREE_LIMIT)} / {FREE_LIMIT} free generations used
+          </Badge>
+          <Button variant="ghost" size="sm" onClick={signOut} className="gap-2">
+            <LogOut className="h-4 w-4" /> Sign Out
+          </Button>
+        </div>
+      </nav>
+
+      <main className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+        <AnimatePresence mode="wait">
+          {status === "complete" ? (
+            /* Results View */
+            <motion.div
+              key="results"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-bold">Your Audio is Ready</h1>
+                <Button variant="outline" size="sm" onClick={resetState} className="gap-2">
+                  <RotateCcw className="h-4 w-4" /> Generate Another
+                </Button>
+              </div>
+
+              <Card ref={audioCardRef}>
+                <CardContent className="pt-6 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <Headphones className="h-5 w-5 text-primary" />
+                    <span className="font-medium truncate">{file?.name ?? (youtubeUrl ? "YouTube transcript" : "Generation")}</span>
+                  </div>
+                  <audio ref={audioRef} controls className="w-full" src={audioUrl}>
+                    Your browser does not support the audio element.
+                  </audio>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm text-muted-foreground">Speed</Label>
+                    <Select value={playbackRate} onValueChange={setPlaybackRate}>
+                      <SelectTrigger className="w-28 h-8"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0.75">0.75x</SelectItem>
+                        <SelectItem value="1">1x</SelectItem>
+                        <SelectItem value="1.25">1.25x</SelectItem>
+                        <SelectItem value="1.5">1.5x</SelectItem>
+                        <SelectItem value="2">2x</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <a href={audioUrl} download={`studycast_${(file?.name ?? "audio").replace(/\.[^.]+$/, "")}.mp3`}>
+                    <Button variant="outline" className="w-full gap-2">
+                      <Download className="h-4 w-4" /> Download MP3
+                    </Button>
+                  </a>
+                </CardContent>
+              </Card>
+
+              {transcript && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <FileText className="h-5 w-5" /> Transcript
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                      {transcript}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </motion.div>
+          ) : isProcessing || status === "failed" ? (
+            /* Processing View */
+            <motion.div
+              key="processing"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-6"
+            >
+              <h1 className="text-2xl font-bold">
+                {status === "failed" ? "Generation Failed" : "Generating Your Audio..."}
+              </h1>
+              <Card>
+                <CardContent className="pt-6 space-y-4">
+                  <Progress value={statusProgress[status]} className="h-2" />
+                  <p className="text-sm text-muted-foreground text-center">
+                    {statusLabels[status]}
+                  </p>
+                  {status === "failed" && (
+                    <div className="space-y-3">
+                      <p className="text-sm text-destructive text-center">{errorMsg}</p>
+                      <Button onClick={resetState} variant="outline" className="w-full">
+                        Try Again
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          ) : (
+            /* Upload & Configure View */
+            <motion.div
+              key="upload"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="space-y-6"
+            >
+              <h1 className="text-2xl font-bold">Create Study Audio</h1>
+
+              {/* Source selector */}
+              <Card>
+                <CardContent className="pt-6">
+                  <Tabs value={source} onValueChange={(v) => setSource(v as SourceType)} className="w-full">
+                    <TabsList className="grid grid-cols-2 w-full mb-4">
+                      <TabsTrigger value="pdf" className="gap-2"><FileText className="h-4 w-4" /> File</TabsTrigger>
+                      <TabsTrigger value="youtube" className="gap-2"><YoutubeIcon className="h-4 w-4" /> YouTube URL</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="pdf" className="mt-0">
+                      <div
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={handleDrop}
+                        className="border-2 border-dashed border-border rounded-xl p-10 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                        onClick={() => document.getElementById("pdf-input")?.click()}
+                      >
+                        {file ? (
+                          <div className="flex items-center justify-center gap-3">
+                            <FileText className="h-8 w-8 text-primary" />
+                            <div className="text-left">
+                              <p className="font-medium">{file.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {(file.size / 1024 / 1024).toFixed(1)} MB
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="ml-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFile(null);
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                            <p className="font-medium">Drop your file here or click to browse</p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Lecture slides, notes, textbook chapters · PDF, PPTX, DOCX · Max 10MB
+                            </p>
+                          </>
+                        )}
+                        <input
+                          id="pdf-input"
+                          type="file"
+                          accept=".pdf,.pptx,.docx,.ppt,.doc"
+                          className="hidden"
+                          onChange={handleFileChange}
+                        />
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="youtube" className="mt-0">
+                      <div className="space-y-3">
+                        <Label htmlFor="yt-url">YouTube video URL</Label>
+                        <Input
+                          id="yt-url"
+                          type="url"
+                          placeholder="https://www.youtube.com/watch?v=..."
+                          value={youtubeUrl}
+                          onChange={(e) => setYoutubeUrl(e.target.value)}
+                        />
+                        <p className="text-sm text-muted-foreground">
+                          We'll fetch the video's transcript and turn it into a study audio.
+                        </p>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+
+              {/* Configuration */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Configuration</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Study Mode</Label>
+                    <Select value={mode} onValueChange={setMode}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="understanding">Understanding</SelectItem>
+                        <SelectItem value="memorization">Memorization</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Language</Label>
+                    <Select value={language} onValueChange={setLanguage}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="English">English</SelectItem>
+                        <SelectItem value="Korean">Korean</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Length</Label>
+                    <Select value={length} onValueChange={setLength}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5 minutes</SelectItem>
+                        <SelectItem value="10">10 minutes</SelectItem>
+                        <SelectItem value="15">15 minutes</SelectItem>
+                        <SelectItem value="30">30 minutes</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Voice Style</Label>
+                    <Select value={voice} onValueChange={setVoice}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lecture">Lecture</SelectItem>
+                        <SelectItem value="podcast">Podcast</SelectItem>
+                        <SelectItem value="calm">Calm</SelectItem>
+                        <SelectItem value="energetic">Energetic</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="w-full">
+                    <Button
+                      className="w-full h-12 text-base gap-2"
+                      onClick={handleGenerate}
+                      disabled={!canGenerate}
+                    >
+                      <Headphones className="h-5 w-5" /> Generate Audio
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                {limitReached && (
+                  <TooltipContent>You've used all free generations.</TooltipContent>
+                )}
+              </Tooltip>
+
+              {/* Recent generations */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <History className="h-5 w-5" /> Recent Generations
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {recent.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">No generations yet</p>
+                  ) : (
+                    recent.map((r) => (
+                      <div key={r.id} className="border rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-sm truncate">{r.filename}</span>
+                          <span className="text-xs text-muted-foreground shrink-0">
+                            {new Date(r.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        {r.audio_url && (
+                          <>
+                            <audio controls className="w-full h-8" src={r.audio_url} />
+                            <a href={r.audio_url} download={`studycast_${r.filename.replace(/\.[^.]+$/, "")}.mp3`}>
+                              <Button variant="ghost" size="sm" className="gap-2 h-7">
+                                <Download className="h-3.5 w-3.5" /> Download
+                              </Button>
+                            </a>
+                          </>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+    </div>
+    </TooltipProvider>
+  );
+}
