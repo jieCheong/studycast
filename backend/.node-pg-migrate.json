@@ -1,0 +1,9 @@
+{
+  "migrationsDir": "migrations",
+  "migrationsTable": "pgmigrations",
+  "migrate:up": "node -r dotenv/config node_modules/node-pg-migrate/bin/node-pg-migrate up",
+  "migrate:down": "node -r dotenv/config node_modules/node-pg-migrate/bin/node-pg-migrate down",
+  "migrate:create": "node node_modules/node-pg-migrate/bin/node-pg-migrate create",
+  "schema": "public",
+  "checkOrder": true
+}
