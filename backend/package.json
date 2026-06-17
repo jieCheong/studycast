@@ -4,24 +4,26 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-  "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
-  "build": "tsc",
-  "start": "node dist/index.js",
-  "migrate:up": "node -r dotenv/config node_modules/node-pg-migrate/bin/node-pg-migrate.js up",
-  "migrate:down": "node -r dotenv/config node_modules/node-pg-migrate/bin/node-pg-migrate.js down",
-  "migrate:create": "node node_modules/node-pg-migrate/bin/node-pg-migrate.js create"
-},
+    "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "migrate:up": "node -r dotenv/config node_modules/node-pg-migrate/bin/node-pg-migrate.js up",
+    "migrate:down": "node -r dotenv/config node_modules/node-pg-migrate/bin/node-pg-migrate.js down",
+    "migrate:create": "node node_modules/node-pg-migrate/bin/node-pg-migrate.js create"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "pg": "^8.21.0"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^25.9.3",
