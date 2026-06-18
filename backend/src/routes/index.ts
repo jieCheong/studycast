@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { pool } from "../db";
 import authRouter from "./routes/auth";
+import { requireAuth, AuthRequest } from "./middleware/auth";
 
 dotenv.config();
 
@@ -27,6 +28,9 @@ app.get("/health-db", async (req:Request, res:Response) => {
 });
 
 app.use("/api/auth", authRouter);
+app.get("/api/me", requireAuth, (req: AuthRequest, res: Response) => {
+  res.json({ userId: req.userId });
+});
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });

@@ -6,6 +6,7 @@ hash functions are built for speed, which is the opposite of what I want for pas
 import { Router, Request, Response } from "express";
 import bcrypt from "bcrypt";
 import { pool } from "../db";
+import jwt from "jsonwebtoken";
 
 const router = Router();
 
@@ -51,5 +52,47 @@ router.post("/signup", async (req: Request, res: Response) => {
         console.error("Signup error: ", err);
         return res.status(500).json({error: "Something went wrong creating your account"});
     }
+});
+
+router.post("/login", async (req: Request, res: Response) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: "Email and password are required" });
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  try {
+    const result = await pool.query(
+      "SELECT id, email, password_hash FROM users WHERE email = $1",
+      [normalizedEmail]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    const user = result.rows[0];
+    const passwordMatches = await bcrypt.compare(password, user.password_hash);
+
+    if (!passwordMatches) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    const token = jwt.sign(
+      { userId: user.id },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "7d" }
+    );
+
+    return res.json({
+      token,
+      user: { id: user.id, email: user.email },
+    });
+  } catch (err) {
+    console.error("Login error:", err);
+    return res.status(500).json({ error: "Something went wrong logging in" });
+  }
 });
 export default router;
