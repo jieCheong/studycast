@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
+const BASE_URL = import.meta.env.VITE_API_URL ?? "";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem("authToken");
@@ -26,6 +26,28 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
+
+  uploadFile: async (file: File) => {
+  const token = localStorage.getItem("authToken");
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${BASE_URL}/api/upload`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      // Do NOT set Content-Type here — the browser sets the correct
+      // multipart boundary automatically when you pass a FormData body
+    },
+    body: formData,
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || "Upload failed");
+  }
+  return data;
+},
 
   signup: (email: string, password: string) =>
     request<{ id: string; email: string; createdAt: string }>("/api/auth/signup", {

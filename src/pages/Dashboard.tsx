@@ -1,7 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { FunctionsHttpError } from "@supabase/supabase-js";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -14,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { api } from "@/lib/api";
 
 type JobStatus = "idle" | "uploading" | "extracting" | "generating-script" | "generating-audio" | "complete" | "failed";
 type SourceType = "pdf" | "youtube";
@@ -40,13 +39,6 @@ const statusProgress: Record<JobStatus, number> = {
   failed: 0,
 };
 
-const voiceMap: Record<string, string> = {
-  lecture: "nPczCjzI2devNBz1zQrb",   // Brian
-  podcast: "cjVigY5qzO86Huf0OWal",   // Eric
-  calm: "EXAVITQu4vr4xnSDxMaL",      // Sarah
-  energetic: "TX3LPaxmHKxFdv7VOQHJ",  // Liam
-};
-
 const ACCEPTED_EXTENSIONS = [".pdf", ".pptx", ".docx", ".ppt", ".doc"];
 const isAcceptedFile = (f: File) => {
   const name = f.name.toLowerCase();
@@ -58,30 +50,6 @@ type RecentItem = {
   audio_url: string | null;
   created_at: string;
   filename: string;
-};
-
-const getFunctionErrorMessage = async (error: unknown, fallback: string) => {
-  if (error instanceof FunctionsHttpError) {
-    try {
-      const body = await error.context.json();
-      if (typeof body?.error === "string" && body.error.trim()) {
-        return body.error;
-      }
-    } catch {
-      try {
-        const text = await error.context.text();
-        if (text.trim()) return text;
-      } catch {
-        // Ignore parse failures and fall back below.
-      }
-    }
-  }
-
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-
-  return fallback;
 };
 
 export default function Dashboard() {
@@ -102,46 +70,12 @@ export default function Dashboard() {
   const [audioUrl, setAudioUrl] = useState("");
   const [playbackRate, setPlaybackRate] = useState<string>("1");
 
-  const [generationCount, setGenerationCount] = useState<number>(0);
-  const [recent, setRecent] = useState<RecentItem[]>([]);
+  const [generationCount] = useState<number>(0);
+  const [recent] = useState<RecentItem[]>([]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioCardRef = useRef<HTMLDivElement | null>(null);
 
-  const loadUsage = useCallback(async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from("profiles")
-      .select("generation_count")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (data) setGenerationCount(data.generation_count ?? 0);
-  }, [user]);
-
-  const loadRecent = useCallback(async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from("outputs")
-      .select("id, audio_url, created_at, jobs!inner(user_id, upload_id, uploads(filename))")
-      .eq("jobs.user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(5);
-    if (data) {
-      setRecent(
-        data.map((row: any) => ({
-          id: row.id,
-          audio_url: row.audio_url,
-          created_at: row.created_at,
-          filename: row.jobs?.uploads?.filename ?? "Generation",
-        }))
-      );
-    }
-  }, [user]);
-
-  useEffect(() => {
-    loadUsage();
-    loadRecent();
-  }, [loadUsage, loadRecent]);
 
   // Auto-scroll to audio + apply playback rate
   useEffect(() => {
@@ -154,139 +88,42 @@ export default function Dashboard() {
     if (audioRef.current) audioRef.current.playbackRate = parseFloat(playbackRate);
   }, [playbackRate, audioUrl]);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const dropped = e.dataTransfer.files[0];
-    if (dropped && isAcceptedFile(dropped)) {
-      setFile(dropped);
-    } else {
-      toast({ title: "Invalid file", description: "Please upload a PDF, PPTX or DOCX file.", variant: "destructive" });
-    }
-  }, [toast]);
+const ALLOWED_TYPES = [
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (selected && isAcceptedFile(selected)) {
-      setFile(selected);
-    }
-  };
+const handleDrop = useCallback((e: React.DragEvent) => {
+  e.preventDefault();
+  const dropped = e.dataTransfer.files[0];
+  if (dropped && ALLOWED_TYPES.includes(dropped.type)) {
+    setFile(dropped);
+  } else {
+    toast({ title: "Invalid file", description: "Please upload a PDF, PPTX, or DOCX file.", variant: "destructive" });
+  }
+}, [toast]);
 
-  const resetState = () => {
-    setFile(null);
-    setYoutubeUrl("");
-    setStatus("idle");
-    setErrorMsg("");
-    setTranscript("");
-    setAudioUrl("");
-  };
+const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const selected = e.target.files?.[0];
+  if (selected && ALLOWED_TYPES.includes(selected.type)) {
+    setFile(selected);
+  }
+}; 
 
   const limitReached = generationCount >= FREE_LIMIT;
 
   const handleGenerate = async () => {
     if (!user) return;
-    if (limitReached) return;
     if (source === "pdf" && !file) return;
-    if (source === "youtube" && !youtubeUrl.trim()) return;
 
     try {
-      let uploadId: string;
-      let extractedText = "";
-      let displayFilename = "";
+      setStatus("uploading");
+      const uploadResult = await api.uploadFile(file);
+      console.log("Upload successful:", uploadResult);
 
-      if (source === "pdf" && file) {
-        // Upload file
-        setStatus("uploading");
-        const filePath = `${user.id}/${Date.now()}_${file.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from("pdf-uploads")
-          .upload(filePath, file);
-        if (uploadError) throw uploadError;
-
-        const { data: upload, error: uploadRecordError } = await supabase
-          .from("uploads")
-          .insert({ user_id: user.id, filename: file.name, file_path: filePath })
-          .select()
-          .single();
-        if (uploadRecordError) throw uploadRecordError;
-        uploadId = upload.id;
-        displayFilename = file.name;
-
-        setStatus("extracting");
-        const { data: extractResult, error: extractError } = await supabase.functions.invoke("process-pdf", {
-          body: { uploadId, filePath },
-        });
-        if (extractError) throw new Error(await getFunctionErrorMessage(extractError, "File extraction failed"));
-        extractedText = extractResult.text;
-      } else {
-        // YouTube flow
-        setStatus("extracting");
-        const { data: ytResult, error: ytError } = await supabase.functions.invoke("fetch-youtube", {
-          body: { youtubeUrl: youtubeUrl.trim() },
-        });
-        if (ytError) throw new Error(await getFunctionErrorMessage(ytError, "Could not fetch YouTube transcript"));
-        extractedText = ytResult.text;
-        displayFilename = `YouTube: ${ytResult.videoId}`;
-
-        const { data: upload, error: uploadRecordError } = await supabase
-          .from("uploads")
-          .insert({ user_id: user.id, filename: displayFilename })
-          .select()
-          .single();
-        if (uploadRecordError) throw uploadRecordError;
-        uploadId = upload.id;
-      }
-
-      // Create job record
-      const { data: job, error: jobError } = await supabase
-        .from("jobs")
-        .insert({
-          upload_id: uploadId,
-          user_id: user.id,
-          mode: mode as "memorization" | "understanding",
-          language,
-          length: parseInt(length),
-          voice,
-        })
-        .select()
-        .single();
-      if (jobError) throw jobError;
-
-      // Step 2: Generate script
-      setStatus("generating-script");
-      const { data: scriptResult, error: scriptError } = await supabase.functions.invoke("generate-script", {
-        body: {
-          jobId: job.id,
-          extractedText,
-          mode,
-          language,
-          length: parseInt(length),
-        },
-      });
-      if (scriptError) throw new Error(await getFunctionErrorMessage(scriptError, "Script generation failed"));
-      setTranscript(scriptResult.transcript);
-
-      // Step 3: Generate audio
-      setStatus("generating-audio");
-      const { data: audioResult, error: audioError } = await supabase.functions.invoke("generate-audio", {
-        body: {
-          jobId: job.id,
-          transcript: scriptResult.transcript,
-          voiceId: voiceMap[voice],
-        },
-      });
-      if (audioError) throw new Error(await getFunctionErrorMessage(audioError, "Audio generation failed"));
-      setAudioUrl(audioResult.audioUrl);
-      setStatus("complete");
-
-      // Increment free-tier usage counter and refresh data
-      await supabase
-        .from("profiles")
-        .update({ generation_count: generationCount + 1 })
-        .eq("user_id", user.id);
-      setGenerationCount((n) => n + 1);
-      loadRecent();
-
-      toast({ title: "Audio ready!", description: "Your study audio has been generated." });
+      toast({ title: "Upload successful!", description: `File stored as upload ${uploadResult.uploadId}` });
+      setStatus("idle");
     } catch (error: any) {
       console.error("Generation error:", error);
       const message = error instanceof Error ? error.message : "Something went wrong";
@@ -294,6 +131,15 @@ export default function Dashboard() {
       setErrorMsg(message);
       toast({ title: "Generation failed", description: message, variant: "destructive" });
     }
+  };
+
+  const resetState = () => {
+    setStatus("idle");
+    setFile(null);
+    setYoutubeUrl("");
+    setTranscript("");
+    setAudioUrl("");
+    setErrorMsg("");
   };
 
   const isProcessing = !["idle", "complete", "failed"].includes(status);
@@ -470,7 +316,7 @@ export default function Dashboard() {
                         <input
                           id="pdf-input"
                           type="file"
-                          accept=".pdf,.pptx,.docx,.ppt,.doc"
+                          accept=".pdf,.pptx,.docx"
                           className="hidden"
                           onChange={handleFileChange}
                         />
