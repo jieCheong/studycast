@@ -1,50 +1,76 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { api } from "./api";
+
+interface User {
+  id: string;
+  email: string;
+}
 
 interface AuthContextType {
-  session: Session | null;
   user: User | null;
   loading: boolean;
-  signOut: () => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string) => Promise<void>;
+  signOut: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
-  session: null,
   user: null,
   loading: true,
-  signOut: async () => {},
+  login: async () => {},
+  signup: async () => {},
+  signOut: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setLoading(false);
-      }
-    );
+    const token = localStorage.getItem("authToken");
+    const storedUser = localStorage.getItem("authUser");
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+    if (token && storedUser) {
+      // Optimistically trust the stored user, then verify the token is still valid
+      setUser(JSON.parse(storedUser));
+      api
+        .me()
+        .catch(() => {
+          // Token expired or invalid — clear everything
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("authUser");
+          setUser(null);
+        })
+        .finally(() => setLoading(false));
+    } else {
       setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    }
   }, []);
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const login = async (email: string, password: string) => {
+    const data = await api.login(email, password);
+    localStorage.setItem("authToken", data.token);
+    localStorage.setItem("authUser", JSON.stringify(data.user));
+    setUser(data.user);
+  };
+
+  const signup = async (email: string, password: string) => {
+    await api.signup(email, password);
+    // Auto-login right after signup for a smoother UX
+    await login(email, password);
+  };
+
+  const signOut = () => {
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("authUser");
+    setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signOut }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, signOut }}>
       {children}
     </AuthContext.Provider>
   );

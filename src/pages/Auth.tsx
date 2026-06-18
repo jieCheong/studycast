@@ -1,13 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { useEffect } from "react";
+import { api } from "@/lib/api";
 
 export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -17,7 +16,7 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, login, signup } = useAuth();
 
   useEffect(() => {
     if (user) navigate("/dashboard");
@@ -29,23 +28,15 @@ export default function Auth() {
 
     try {
       if (isForgotPassword) {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/reset-password`,
-        });
-        if (error) throw error;
-        toast({ title: "Check your email", description: "We sent you a password reset link." });
+        await api.forgotPassword(email);
+        toast({ title: "Check the server logs", description: "A reset link has been generated (email sending isn't wired up yet)." });
         setIsForgotPassword(false);
       } else if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: window.location.origin },
-        });
-        if (error) throw error;
-        toast({ title: "Account created!", description: "Check your email to confirm your account." });
+        await signup(email, password);
+        toast({ title: "Account created!", description: "Welcome to StudyCast AI." });
+        navigate("/dashboard");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        await login(email, password);
         navigate("/dashboard");
       }
     } catch (error: any) {
@@ -92,7 +83,7 @@ export default function Auth() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={8}
                   placeholder="••••••••"
                 />
               </div>

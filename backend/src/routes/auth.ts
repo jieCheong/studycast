@@ -7,6 +7,7 @@ import { Router, Request, Response } from "express";
 import bcrypt from "bcrypt";
 import { pool } from "../db";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 
 const router = Router();
 
@@ -93,6 +94,83 @@ router.post("/login", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("Login error:", err);
     return res.status(500).json({ error: "Something went wrong logging in" });
+  }
+});
+router.post("/forgot-password", async (req: Request, res: Response) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: "Email is required" });
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  try {
+    const userResult = await pool.query("SELECT id FROM users WHERE email = $1", [normalizedEmail]);
+
+    // Always respond the same way, whether or not the email exists —
+    // prevents attackers from using this endpoint to discover registered emails
+    if (userResult.rows.length === 0) {
+      return res.json({ message: "If that email is registered, a reset link has been sent." });
+    }
+
+    const userId = userResult.rows[0].id;
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+    await pool.query(
+      "INSERT INTO reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)",
+      [userId, token, expiresAt]
+    );
+
+    // No email service yet — log the link so you can test the flow manually
+    console.log(`Password reset link for ${normalizedEmail}: http://localhost:5173/reset-password?token=${token}`);
+
+    return res.json({ message: "If that email is registered, a reset link has been sent." });
+  } catch (err) {
+    console.error("Forgot-password error:", err);
+    return res.status(500).json({ error: "Something went wrong" });
+  }
+});
+
+router.post("/reset-password", async (req: Request, res: Response) => {
+  const { token, newPassword } = req.body;
+
+  if (!token || !newPassword) {
+    return res.status(400).json({ error: "Token and new password are required" });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: "Password must be at least 8 characters" });
+  }
+
+  try {
+    const tokenResult = await pool.query(
+      "SELECT user_id, expires_at FROM reset_tokens WHERE token = $1",
+      [token]
+    );
+
+    if (tokenResult.rows.length === 0) {
+      return res.status(400).json({ error: "Invalid or expired reset link" });
+    }
+
+    const { user_id, expires_at } = tokenResult.rows[0];
+
+    if (new Date(expires_at) < new Date()) {
+      // Clean up the expired token while we're here
+      await pool.query("DELETE FROM reset_tokens WHERE token = $1", [token]);
+      return res.status(400).json({ error: "Invalid or expired reset link" });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await pool.query("UPDATE users SET password_hash = $1 WHERE id = $2", [passwordHash, user_id]);
+
+    // Token is single-use — delete it after successful reset
+    await pool.query("DELETE FROM reset_tokens WHERE token = $1", [token]);
+
+    return res.json({ message: "Password has been reset successfully" });
+  } catch (err) {
+    console.error("Reset-password error:", err);
+    return res.status(500).json({ error: "Something went wrong" });
   }
 });
 export default router;
