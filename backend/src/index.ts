@@ -5,6 +5,7 @@ import { pool } from "./db";
 import authRouter from "./routes/auth";
 import { requireAuth, AuthRequest } from "./middleware/auth";
 import uploadRouter from "./routes/upload";
+import extractRouter from "./routes/extract";
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ app.get("/health-db", async (req: Request, res: Response) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/upload", uploadRouter);
+app.use("/api/extract", extractRouter);
 
 app.get("/api/me", requireAuth, (req: AuthRequest, res) => {
   res.json({ userId: req.userId });
