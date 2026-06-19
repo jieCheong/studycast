@@ -81,4 +81,6 @@ export const api = {
 
   generateAudio: (jobId: string, voice?: string) =>
     request<{ audioUrl: string }>("/api/generate-audio", { method: "POST", body: JSON.stringify({ jobId, voice }) }),
+  getHistory: () => request("/api/history"),
+  getProfile: () => request("/api/profile"),
 };

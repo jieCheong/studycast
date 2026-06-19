@@ -10,14 +10,12 @@ import { Upload, FileText, Headphones, Download, LogOut, RotateCcw, X, Video as 
 import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { api } from "@/lib/api";
 
 type JobStatus = "idle" | "uploading" | "extracting" | "generating-script" | "generating-audio" | "complete" | "failed";
 type SourceType = "pdf" | "youtube";
 
-const FREE_LIMIT = 3;
 
 const statusLabels: Record<JobStatus, string> = {
   idle: "",
@@ -52,12 +50,6 @@ const isAcceptedFile = (f: File) => {
   return ACCEPTED_EXTENSIONS.some((ext) => name.endsWith(ext));
 };
 
-type RecentItem = {
-  id: string;
-  audio_url: string | null;
-  created_at: string;
-  filename: string;
-};
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
@@ -77,8 +69,24 @@ export default function Dashboard() {
   const [audioUrl, setAudioUrl] = useState("");
   const [playbackRate, setPlaybackRate] = useState<string>("1");
 
-  const [generationCount] = useState<number>(0);
-  const [recent] = useState<RecentItem[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
+  const [generationCount, setGenerationCount] = useState(0);
+  const [freeLimit, setFreeLimit] = useState(3);
+
+  const loadHistoryAndProfile = async () => {
+    try {
+      const [historyData, profileData] = await Promise.all([api.getHistory(), api.getProfile()]);
+      setHistory((historyData as any).history);
+      setGenerationCount((profileData as any).generationCount);
+      setFreeLimit((profileData as any).freeLimit);
+    } catch (err) {
+      console.error("Failed to load history/profile:", err);
+    }
+  };
+
+  useEffect(() => {
+    loadHistoryAndProfile();
+  }, []);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioCardRef = useRef<HTMLDivElement | null>(null);
@@ -118,7 +126,7 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   }
 }; 
 
-  const limitReached = generationCount >= FREE_LIMIT;
+  const limitReached = generationCount >= freeLimit;
 
   const handleGenerate = async () => {
   if (!user) return;
@@ -150,6 +158,7 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setAudioUrl(audioResult.audioUrl);
 
     setStatus("complete");
+    loadHistoryAndProfile();
     toast({ title: "Audio ready!", description: "Your study audio has been generated." });
   } catch (error: any) {
     console.error("Generation error:", error);
@@ -182,9 +191,9 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           StudyCast<span className="text-primary">AI</span>
         </span>
         <div className="flex items-center gap-3">
-          <Badge variant={limitReached ? "destructive" : "secondary"} className="hidden sm:inline-flex">
-            {Math.min(generationCount, FREE_LIMIT)} / {FREE_LIMIT} free generations used
-          </Badge>
+          <span className="text-sm text-muted-foreground">
+            {generationCount} / {freeLimit} free generations used
+          </span>
           <Button variant="ghost" size="sm" onClick={signOut} className="gap-2">
             <LogOut className="h-4 w-4" /> Sign Out
           </Button>
@@ -422,6 +431,11 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 </CardContent>
               </Card>
 
+              {limitReached && (
+                <p className="text-sm text-destructive text-center">
+                  You've used all {freeLimit} free generations.
+                </p>
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="w-full">
@@ -447,21 +461,21 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {recent.length === 0 ? (
+                  {history.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">No generations yet</p>
                   ) : (
-                    recent.map((r) => (
-                      <div key={r.id} className="border rounded-lg p-3 space-y-2">
+                    history.map((r: any) => (
+                      <div key={r.jobId} className="border rounded-lg p-3 space-y-2">
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium text-sm truncate">{r.filename}</span>
                           <span className="text-xs text-muted-foreground shrink-0">
-                            {new Date(r.created_at).toLocaleDateString()}
+                            {new Date(r.createdAt).toLocaleDateString()}
                           </span>
                         </div>
-                        {r.audio_url && (
+                        {r.audioUrl && (
                           <>
-                            <audio controls className="w-full h-8" src={r.audio_url} />
-                            <a href={r.audio_url} download={`studycast_${r.filename.replace(/\.[^.]+$/, "")}.mp3`}>
+                            <audio controls className="w-full h-8" src={r.audioUrl} />
+                            <a href={r.audioUrl} download={`studycast_${r.filename.replace(/\.[^.]+$/, "")}.mp3`}>
                               <Button variant="ghost" size="sm" className="gap-2 h-7">
                                 <Download className="h-3.5 w-3.5" /> Download
                               </Button>
