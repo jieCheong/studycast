@@ -27,7 +27,7 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
-  uploadFile: async (file: File) => {
+  uploadFile: async (file: File): Promise<{ uploadId: string }> => {
   const token = localStorage.getItem("authToken");
   const formData = new FormData();
   formData.append("file", file);
@@ -36,8 +36,6 @@ export const api = {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
-      // Do NOT set Content-Type here — the browser sets the correct
-      // multipart boundary automatically when you pass a FormData body
     },
     body: formData,
   });
@@ -46,7 +44,7 @@ export const api = {
   if (!response.ok) {
     throw new Error(data.error || "Upload failed");
   }
-  return data;
+  return data as { uploadId: string };
 },
 
   signup: (email: string, password: string) =>
@@ -69,4 +67,18 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ token, newPassword }),
     }),
+  extractText: (uploadId: string) =>
+    request("/api/extract", { method: "POST", body: JSON.stringify({ uploadId }) }),
+
+  submitYoutubeUrl: (youtubeUrl: string) =>
+    request<{ uploadId: string }>("/api/youtube", { method: "POST", body: JSON.stringify({ youtubeUrl }) }),
+
+  generateScript: (uploadId: string, mode: string, language: string, length: string) =>
+    request<{ transcript: string; jobId: string }>("/api/generate-script", {
+      method: "POST",
+      body: JSON.stringify({ uploadId, mode, language, length }),
+    }),
+
+  generateAudio: (jobId: string, voice?: string) =>
+    request<{ audioUrl: string }>("/api/generate-audio", { method: "POST", body: JSON.stringify({ jobId, voice }) }),
 };

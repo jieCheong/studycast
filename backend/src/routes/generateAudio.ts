@@ -8,7 +8,14 @@ import { openai } from "../lib/openai";
 
 const router = Router();
 
-const DEFAULT_VOICE = "alloy";
+const voiceMap: Record<string, string> = {
+  lecture: "onyx",
+  podcast: "echo",
+  calm: "shimmer",
+  energetic: "nova",
+};
+
+const DEFAULT_VOICE = "onyx";
 
 function chunkText(text: string, maxChars = 4096): string[] {
   const chunks: string[] = [];
@@ -63,7 +70,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res: Response) => {
     }
 
     const { transcript, output_id } = jobResult.rows[0];
-    const usedVoice = voice || DEFAULT_VOICE;
+    const usedVoice = voiceMap[voice] ?? DEFAULT_VOICE;
 
     const chunks = chunkText(transcript);
     const audioBuffers: Buffer[] = [];

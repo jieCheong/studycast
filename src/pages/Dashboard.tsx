@@ -39,6 +39,13 @@ const statusProgress: Record<JobStatus, number> = {
   failed: 0,
 };
 
+const voiceMap: Record<string, string> = {
+  lecture: "onyx",
+  podcast: "echo",
+  calm: "shimmer",
+  energetic: "nova",
+};
+
 const ACCEPTED_EXTENSIONS = [".pdf", ".pptx", ".docx", ".ppt", ".doc"];
 const isAcceptedFile = (f: File) => {
   const name = f.name.toLowerCase();
@@ -114,24 +121,44 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   const limitReached = generationCount >= FREE_LIMIT;
 
   const handleGenerate = async () => {
-    if (!user) return;
-    if (source === "pdf" && !file) return;
+  if (!user) return;
+  if (source === "pdf" && !file) return;
+  if (source === "youtube" && !youtubeUrl.trim()) return;
 
-    try {
+  try {
+    let uploadId: string;
+
+    if (source === "pdf") {
       setStatus("uploading");
-      const uploadResult = await api.uploadFile(file);
-      console.log("Upload successful:", uploadResult);
+      const uploadResult = await api.uploadFile(file!);
+      uploadId = uploadResult.uploadId;
 
-      toast({ title: "Upload successful!", description: `File stored as upload ${uploadResult.uploadId}` });
-      setStatus("idle");
-    } catch (error: any) {
-      console.error("Generation error:", error);
-      const message = error instanceof Error ? error.message : "Something went wrong";
-      setStatus("failed");
-      setErrorMsg(message);
-      toast({ title: "Generation failed", description: message, variant: "destructive" });
+      setStatus("extracting");
+      await api.extractText(uploadId);
+    } else {
+      setStatus("extracting");
+      const ytResult = await api.submitYoutubeUrl(youtubeUrl);
+      uploadId = ytResult.uploadId;
     }
-  };
+
+    setStatus("generating-script");
+    const scriptResult = await api.generateScript(uploadId, mode, language, length);
+    setTranscript(scriptResult.transcript);
+
+    setStatus("generating-audio");
+    const audioResult = await api.generateAudio(scriptResult.jobId, voiceMap[voice]);
+    setAudioUrl(audioResult.audioUrl);
+
+    setStatus("complete");
+    toast({ title: "Audio ready!", description: "Your study audio has been generated." });
+  } catch (error: any) {
+    console.error("Generation error:", error);
+    const message = error instanceof Error ? error.message : "Something went wrong";
+    setStatus("failed");
+    setErrorMsg(message);
+    toast({ title: "Generation failed", description: message, variant: "destructive" });
+  }
+};
 
   const resetState = () => {
     setStatus("idle");

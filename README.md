@@ -1,3 +1,5 @@
-# Welcome to your Lovable project
+# StudySound AI
 
-TODO: Document your project here
+Convert study materials (PDF, PPTX, DOCX, YouTube) into AI-generated audio summaries.
+
+See [plan.md](plan.md) for the full tech stack and feature list.
