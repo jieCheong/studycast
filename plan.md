@@ -1,4 +1,4 @@
-# StudySound AI — Project Plan
+# StudyCast AI — Project Plan
 
 ## What it does
 Converts study materials (PDF, PPTX, DOCX, or YouTube videos) into AI-generated audio summaries. Users upload a file or paste a YouTube URL, choose a voice style and script mode, and receive a downloadable audio file.

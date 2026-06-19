@@ -14,6 +14,8 @@ import profileRouter from "./routes/profile";
 
 dotenv.config();
 
+console.log("DATABASE_URL exists:", !!process.env.DATABASE_URL);
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 

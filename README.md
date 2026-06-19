@@ -1,4 +1,4 @@
-# StudySound AI
+# StudyCast AI
 
 Convert study materials (PDF, PPTX, DOCX, YouTube) into AI-generated audio summaries.
 
