@@ -8,6 +8,7 @@ import uploadRouter from "./routes/upload";
 import extractRouter from "./routes/extract";
 import youtubeRouter from "./routes/youtube";
 import generateScriptRouter from "./routes/generateScript";
+import generateAudioRouter from "./routes/generateAudio";
 
 dotenv.config();
 
@@ -36,6 +37,7 @@ app.use("/api/upload", uploadRouter);
 app.use("/api/extract", extractRouter);
 app.use("/api/youtube", youtubeRouter);
 app.use("/api/generate-script", generateScriptRouter);
+app.use("/api/generate-audio", generateAudioRouter);
 
 app.get("/api/me", requireAuth, (req: AuthRequest, res) => {
   res.json({ userId: req.userId });
