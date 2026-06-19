@@ -26,9 +26,9 @@ function chunkText(text: string, maxChars = 4096): string[] {
       chunks.push(remaining);
       break;
     }
-    // Find the last sentence boundary before maxChars
-    let splitIndex = remaining.lastIndexOf(". ", maxChars);
-    if (splitIndex === -1) splitIndex = maxChars;
+    // Search up to maxChars - 1 so that slice(0, splitIndex + 1) is at most maxChars chars
+    let splitIndex = remaining.lastIndexOf(". ", maxChars - 1);
+    if (splitIndex === -1) splitIndex = maxChars - 1;
     chunks.push(remaining.slice(0, splitIndex + 1));
     remaining = remaining.slice(splitIndex + 1).trim();
   }
@@ -114,10 +114,14 @@ router.post("/", requireAuth, async (req: AuthRequest, res: Response) => {
     return res.json({ audioUrl: presignedUrl, s3Key });
   } catch (err) {
     console.error("Audio generation error:", err);
-    await pool.query("UPDATE jobs SET status = 'failed', error_message = $1 WHERE id = $2", [
-      String(err),
-      jobId,
-    ]);
+    try {
+      await pool.query("UPDATE jobs SET status = 'failed', error_message = $1 WHERE id = $2", [
+        String(err),
+        jobId,
+      ]);
+    } catch (dbErr) {
+      console.error("Failed to update job status:", dbErr);
+    }
     return res.status(500).json({ error: "Failed to generate audio" });
   }
 });

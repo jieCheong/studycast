@@ -22,7 +22,7 @@ const statusLabels: Record<JobStatus, string> = {
   uploading: "Uploading file...",
   extracting: "Extracting text...",
   "generating-script": "Generating script with AI...",
-  "generating-audio": "Creating audio with ElevenLabs...",
+  "generating-audio": "Creating audio...",
   complete: "Complete!",
   failed: "Generation failed",
 };
@@ -71,7 +71,19 @@ export default function Dashboard() {
 
   const [history, setHistory] = useState<any[]>([]);
   const [generationCount, setGenerationCount] = useState(0);
-  const [freeLimit, setFreeLimit] = useState(3);
+  const [freeLimit, setFreeLimit] = useState(2);
+
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const audioCardRef = useRef<HTMLDivElement>(null);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+
+  const handleSpeedChange = (speed: number) => {
+    setPlaybackSpeed(speed);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = speed;
+    }
+  };
 
   const loadHistoryAndProfile = async () => {
     try {
@@ -87,9 +99,6 @@ export default function Dashboard() {
   useEffect(() => {
     loadHistoryAndProfile();
   }, []);
-
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioCardRef = useRef<HTMLDivElement | null>(null);
 
 
   // Auto-scroll to audio + apply playback rate
@@ -159,6 +168,9 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 
     setStatus("complete");
     loadHistoryAndProfile();
+    setTimeout(() => {
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start"});
+    }, 100);
     toast({ title: "Audio ready!", description: "Your study audio has been generated." });
   } catch (error: any) {
     console.error("Generation error:", error);
@@ -205,6 +217,7 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           {status === "complete" ? (
             /* Results View */
             <motion.div
+              ref={resultsRef}
               key="results"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -227,18 +240,19 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                   <audio ref={audioRef} controls className="w-full" src={audioUrl}>
                     Your browser does not support the audio element.
                   </audio>
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm text-muted-foreground">Speed</Label>
-                    <Select value={playbackRate} onValueChange={setPlaybackRate}>
-                      <SelectTrigger className="w-28 h-8"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0.75">0.75x</SelectItem>
-                        <SelectItem value="1">1x</SelectItem>
-                        <SelectItem value="1.25">1.25x</SelectItem>
-                        <SelectItem value="1.5">1.5x</SelectItem>
-                        <SelectItem value="2">2x</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="flex items-center justify-center gap-2 mt-3">
+                    <span className="text-xs text-muted-foreground mr-1">Speed:</span>
+                    {[0.75, 1, 1.25, 1.5, 2].map((speed) => (
+                      <Button
+                        key={speed}
+                        variant={playbackSpeed === speed ? "default" : "outline"}
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => handleSpeedChange(speed)}
+                      >
+                        {speed}x
+                      </Button>
+                    ))}
                   </div>
                   <a href={audioUrl} download={`studycast_${(file?.name ?? "audio").replace(/\.[^.]+$/, "")}.mp3`}>
                     <Button variant="outline" className="w-full gap-2">
@@ -383,7 +397,7 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 <CardHeader>
                   <CardTitle className="text-lg">Configuration</CardTitle>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Study Mode</Label>
                     <Select value={mode} onValueChange={setMode}>

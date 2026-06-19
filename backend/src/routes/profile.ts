@@ -9,15 +9,13 @@ router.get("/", requireAuth, async (req: AuthRequest, res: Response) => {
 
   try {
     const result = await pool.query(
-      "SELECT generation_count FROM profiles WHERE user_id = $1",
+      `SELECT COUNT(*) as count FROM jobs
+       WHERE user_id = $1 AND status = 'complete'
+       AND created_at >= CURRENT_DATE`,
       [userId]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Profile not found" });
-    }
-
-    return res.json({ generationCount: result.rows[0].generation_count, freeLimit: 3 });
+    return res.json({ generationCount: parseInt(result.rows[0].count), freeLimit: 2 });
   } catch (err) {
     console.error("Profile fetch error:", err);
     return res.status(500).json({ error: "Failed to fetch profile" });
