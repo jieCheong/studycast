@@ -8,10 +8,11 @@ import bcrypt from "bcrypt";
 import { pool } from "../db";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import { authRateLimiter } from "../middleware/rateLimit";
 
 const router = Router();
 
-router.post("/signup", async (req: Request, res: Response) => {
+router.post("/signup", authRateLimiter, async (req: Request, res: Response) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -55,7 +56,7 @@ router.post("/signup", async (req: Request, res: Response) => {
     }
 });
 
-router.post("/login", async (req: Request, res: Response) => {
+router.post("/login", authRateLimiter, async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -96,7 +97,7 @@ router.post("/login", async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Something went wrong logging in" });
   }
 });
-router.post("/forgot-password", async (req: Request, res: Response) => {
+router.post("/forgot-password", authRateLimiter, async (req: Request, res: Response) => {
   const { email } = req.body;
 
   if (!email) {
