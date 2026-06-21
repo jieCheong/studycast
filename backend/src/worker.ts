@@ -68,6 +68,7 @@ const worker = new Worker<PipelineJobData>(
     try {
       // STEP 1: Extract text (skip if already extracted, e.g. for YouTube uploads)
       await job.updateProgress({ step: "extracting", percent: 10 });
+      console.log(`[Job ${jobId}] Step: extracting`);
       await updateJobStatus(jobId, "processing");
 
       const uploadResult = await pool.query(
@@ -102,6 +103,7 @@ const worker = new Worker<PipelineJobData>(
 
       // STEP 2: Generate script
       await job.updateProgress({ step: "generating-script", percent: 40 });
+      console.log(`[Job ${jobId}] Step: generating-script`);
 
       const systemPrompt = buildSystemPrompt(mode, language, parseInt(length));
       const completion = await openai.chat.completions.create({
@@ -124,6 +126,7 @@ const worker = new Worker<PipelineJobData>(
 
       // STEP 3: Generate audio
       await job.updateProgress({ step: "generating-audio", percent: 70 });
+      console.log(`[Job ${jobId}] Step: generating-audio`);
 
       const usedVoice = voice || "alloy";
       const ttsChunks = chunkTextForTTS(transcript);

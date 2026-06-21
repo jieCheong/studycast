@@ -7,10 +7,9 @@ import { requireAuth, AuthRequest } from "./middleware/auth";
 import uploadRouter from "./routes/upload";
 import extractRouter from "./routes/extract";
 import youtubeRouter from "./routes/youtube";
-import generateScriptRouter from "./routes/generateScript";
-import generateAudioRouter from "./routes/generateAudio";
 import historyRouter from "./routes/history";
 import profileRouter from "./routes/profile";
+import jobsRouter from "./routes/jobs";
 
 dotenv.config();
 
@@ -39,10 +38,9 @@ app.use("/api/auth", authRouter);
 app.use("/api/upload", uploadRouter);
 app.use("/api/extract", extractRouter);
 app.use("/api/youtube", youtubeRouter);
-app.use("/api/generate-script", generateScriptRouter);
-app.use("/api/generate-audio", generateAudioRouter);
 app.use("/api/history", historyRouter);
 app.use("/api/profile", profileRouter);
+app.use("/api/jobs", jobsRouter);
 
 app.get("/api/me", requireAuth, (req: AuthRequest, res) => {
   res.json({ userId: req.userId });

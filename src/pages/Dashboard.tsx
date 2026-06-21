@@ -140,7 +140,29 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 
   const limitReached = generationCount >= freeLimit;
 
-  const handleGenerate = async () => {
+  const pollJobStatus = (jobId: string): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    const interval = setInterval(async () => {
+      try {
+        const data = await api.getJobStatus(jobId);
+
+        if (data.status === "complete") {
+          clearInterval(interval);
+          resolve(data);
+        } else if (data.status === "failed") {
+          clearInterval(interval);
+          reject(new Error(data.errorMessage || "Generation failed"));
+        }
+        // else: still queued/processing, keep polling
+      } catch (err) {
+        clearInterval(interval);
+        reject(err);
+      }
+    }, 2000); // poll every 2 seconds
+  });
+};
+
+const handleGenerate = async () => {
   if (!user) return;
   if (source === "pdf" && !file) return;
   if (source === "youtube" && !youtubeUrl.trim()) return;
@@ -148,31 +170,28 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   try {
     let uploadId: string;
 
-    if (source === "pdf") {
-      setStatus("uploading");
+    setStatus("uploading");
+    if (source === "youtube") {
+      const uploadResult = await api.submitYoutubeUrl(youtubeUrl);
+      uploadId = uploadResult.uploadId;
+    } else {
       const uploadResult = await api.uploadFile(file!);
       uploadId = uploadResult.uploadId;
-
       setStatus("extracting");
       await api.extractText(uploadId);
-    } else {
-      setStatus("extracting");
-      const ytResult = await api.submitYoutubeUrl(youtubeUrl);
-      uploadId = ytResult.uploadId;
     }
 
     setStatus("generating-script");
-    const scriptResult = await api.generateScript(uploadId, mode, language, length);
-    setTranscript(scriptResult.transcript);
+    const jobResult = await api.createJob(uploadId, mode, language, length, voiceMap[voice]);
 
-    setStatus("generating-audio");
-    const audioResult = await api.generateAudio(scriptResult.jobId, voiceMap[voice]);
-    setAudioUrl(audioResult.audioUrl);
+    const completedJob = await pollJobStatus(jobResult.jobId);
 
+    setTranscript(completedJob.transcript);
+    setAudioUrl(completedJob.audioUrl);
     setStatus("complete");
     loadHistoryAndProfile();
     setTimeout(() => {
-      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start"});
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
     toast({ title: "Audio ready!", description: "Your study audio has been generated." });
   } catch (error: any) {

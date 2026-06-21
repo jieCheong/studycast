@@ -74,14 +74,13 @@ export const api = {
   submitYoutubeUrl: (youtubeUrl: string) =>
     request<{ uploadId: string }>("/api/youtube", { method: "POST", body: JSON.stringify({ youtubeUrl }) }),
 
-  generateScript: (uploadId: string, mode: string, language: string, length: string) =>
-    request<{ transcript: string; jobId: string }>("/api/generate-script", {
+  createJob: (uploadId: string, mode: string, language: string, length: string, voice?: string) =>
+    request<{ jobId: string; status: string }>("/api/jobs", {
       method: "POST",
-      body: JSON.stringify({ uploadId, mode, language, length }),
+      body: JSON.stringify({ uploadId, mode, language, length, voice }),
     }),
-
-  generateAudio: (jobId: string, voice?: string) =>
-    request<{ audioUrl: string }>("/api/generate-audio", { method: "POST", body: JSON.stringify({ jobId, voice }) }),
+  getJobStatus: (jobId: string) =>
+    request<{ jobId: string; status: string; errorMessage: string | null; transcript: string | null; audioUrl: string | null }>(`/api/jobs/${jobId}/status`),
   getHistory: () => request("/api/history"),
   getProfile: () => request("/api/profile"),
 };
