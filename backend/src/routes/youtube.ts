@@ -2,6 +2,8 @@ import { Router, Response } from "express";
 import { YoutubeTranscript } from "youtube-transcript";
 import { pool } from "../db";
 import { requireAuth, AuthRequest } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
+import { youtubeSchema } from "../schemas/jobs.schema";
 
 const router = Router();
 
@@ -19,7 +21,7 @@ function extractVideoId(url: string): string | null {
   return null;
 }
 
-router.post("/", requireAuth, async (req: AuthRequest, res: Response) => {
+router.post("/", requireAuth, validateBody(youtubeSchema),async (req: AuthRequest, res: Response) => {
   const { youtubeUrl } = req.body;
   const userId = req.userId as string;
 

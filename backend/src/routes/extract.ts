@@ -5,6 +5,8 @@ import { geminiModel } from "../lib/gemini";
 import { pool } from "../db";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { OfficeParser } from "officeparser";
+import { validateBody } from "../middleware/validate";
+import { extractTextSchema } from "../schemas/jobs.schema";
 
 const router = Router();
 
@@ -16,7 +18,7 @@ async function streamToBuffer(stream: any): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-router.post("/", requireAuth, async (req: AuthRequest, res: Response) => {
+router.post("/", requireAuth, validateBody(extractTextSchema),async (req: AuthRequest, res: Response) => {
   const { uploadId } = req.body;
   const userId = req.userId as string;
 

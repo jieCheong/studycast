@@ -2,10 +2,12 @@ import { Router, Response } from "express";
 import { pool } from "../db";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { pipelineQueue } from "../lib/queue";
+import { validateBody } from "../middleware/validate";
+import { createJobSchema } from "../schemas/jobs.schema";
 
 const router = Router();
 
-router.post("/", requireAuth, async (req: AuthRequest, res: Response) => {
+router.post("/", requireAuth, validateBody(createJobSchema),async (req: AuthRequest, res: Response) => {
   const { uploadId, mode, language, length, voice } = req.body;
   const userId = req.userId as string;
 

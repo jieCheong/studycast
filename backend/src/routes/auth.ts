@@ -9,21 +9,14 @@ import { pool } from "../db";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { authRateLimiter } from "../middleware/rateLimit";
+import { validateBody } from "../middleware/validate";
+import { signupSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema } from "../schemas/auth.schema";
 
 const router = Router();
 
-router.post("/signup", authRateLimiter, async (req: Request, res: Response) => {
+router.post("/signup", validateBody(signupSchema),authRateLimiter, async (req: Request, res: Response) => {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({error: "Email and password are required"});
-    }
-    if (typeof email !== "string" || typeof password !== "string") {
-        return res.status(400).json({error: "Invalid input"});
-    }
-    if (password.length < 8) {
-        return res.status(400).json({error: "Password must be at least 8 characters"});
-    }
     const normalizedEmail = email.trim().toLowerCase();
 
     try {
@@ -56,12 +49,8 @@ router.post("/signup", authRateLimiter, async (req: Request, res: Response) => {
     }
 });
 
-router.post("/login", authRateLimiter, async (req: Request, res: Response) => {
+router.post("/login", validateBody(loginSchema), authRateLimiter, async (req: Request, res: Response) => {
   const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email and password are required" });
-  }
 
   const normalizedEmail = email.trim().toLowerCase();
 
@@ -97,12 +86,8 @@ router.post("/login", authRateLimiter, async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Something went wrong logging in" });
   }
 });
-router.post("/forgot-password", authRateLimiter, async (req: Request, res: Response) => {
+router.post("/forgot-password", validateBody(forgotPasswordSchema),authRateLimiter, async (req: Request, res: Response) => {
   const { email } = req.body;
-
-  if (!email) {
-    return res.status(400).json({ error: "Email is required" });
-  }
 
   const normalizedEmail = email.trim().toLowerCase();
 
@@ -134,15 +119,8 @@ router.post("/forgot-password", authRateLimiter, async (req: Request, res: Respo
   }
 });
 
-router.post("/reset-password", async (req: Request, res: Response) => {
+router.post("/reset-password", validateBody(resetPasswordSchema),async (req: Request, res: Response) => {
   const { token, newPassword } = req.body;
-
-  if (!token || !newPassword) {
-    return res.status(400).json({ error: "Token and new password are required" });
-  }
-  if (newPassword.length < 8) {
-    return res.status(400).json({ error: "Password must be at least 8 characters" });
-  }
 
   try {
     const tokenResult = await pool.query(
