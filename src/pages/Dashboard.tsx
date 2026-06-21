@@ -130,10 +130,13 @@ const handleDrop = useCallback((e: React.DragEvent) => {
 
 const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   const selected = e.target.files?.[0];
-  if (selected && ALLOWED_TYPES.includes(selected.type)) {
+  if (!selected) return;
+  if (ALLOWED_TYPES.includes(selected.type) || isAcceptedFile(selected)) {
     setFile(selected);
+  } else {
+    toast({ title: "Invalid file", description: "Please upload a PDF, PPTX, or DOCX file.", variant: "destructive" });
   }
-}; 
+};
 
   const limitReached = generationCount >= freeLimit;
 

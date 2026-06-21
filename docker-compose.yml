@@ -11,5 +11,15 @@ services:
      - "5432:5432"
     volumes:
      - studycast_pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: studycast-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - studycast_redisdata:/data
 volumes:
   studycast_pgdata:
+  studycast_redisdata:

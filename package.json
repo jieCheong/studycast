@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "worker": "nodemon --watch src --ext ts --exec ts-node src/worker.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
