@@ -12,9 +12,10 @@ router.get("/", requireAuth, async (req: AuthRequest, res: Response) => {
 
   try {
     const result = await pool.query(
-      `SELECT 
-         j.id as job_id, 
-         j.mode, 
+      `SELECT
+         j.id as job_id,
+         j.upload_id,
+         j.mode,
          j.created_at,
          u.filename,
          o.transcript,
@@ -42,6 +43,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res: Response) => {
         }
         return {
           jobId: row.job_id,
+          uploadId: row.upload_id,
           filename: row.filename,
           mode: row.mode,
           createdAt: row.created_at,
