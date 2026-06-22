@@ -22,6 +22,7 @@
     "@aws-sdk/client-s3": "^3.1071.0",
     "@aws-sdk/s3-request-presigner": "^3.1071.0",
     "@google/generative-ai": "^0.24.1",
+    "@sentry/node": "^10.59.0",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.79.1",
     "cors": "^2.8.6",

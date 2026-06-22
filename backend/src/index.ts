@@ -1,3 +1,6 @@
+import { initSentry, Sentry } from "./lib/sentry";
+initSentry();
+
 import express, { Request, Response } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -48,6 +51,18 @@ app.use("/api/jobs", jobsRouter);
 app.get("/api/me", requireAuth, (req: AuthRequest, res) => {
   res.json({ userId: req.userId });
 });
+
+process.on("unhandledRejection", (reason) => {
+  logger.error({ reason }, "Unhandled promise rejection");
+  Sentry.captureException(reason);
+});
+
+process.on("uncaughtException", (err) => {
+  logger.error({ err }, "Uncaught exception");
+  Sentry.captureException(err);
+});
+
+Sentry.setupExpressErrorHandler(app);
 
 app.listen(PORT, () => {
     logger.info(`Server running on http://localhost:${PORT}`);

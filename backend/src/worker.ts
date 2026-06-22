@@ -1,3 +1,6 @@
+import { initSentry, Sentry } from "./lib/sentry";
+initSentry();
+
 import { Worker, Job } from "bullmq";
 import { redisConnection } from "./lib/redis";
 import { PipelineJobData } from "./lib/queue";
@@ -164,6 +167,7 @@ const worker = new Worker<PipelineJobData>(
       return { success: true, outputId, s3Key };
     } catch (err: any) {
       logger.error({ jobId, err: err.message, stack: err.stack }, "Pipeline job failed");
+      Sentry.captureException(err, { extra: { jobId, uploadId, userId } });
       await updateJobStatus(jobId, "failed", err.message || String(err));
       throw err; // re-throw so BullMQ marks it as failed and can retry
     }
@@ -177,6 +181,16 @@ worker.on("completed", (job) => {
 
 worker.on("failed", (job, err) => {
   logger.error({ jobId: job?.id, err: err.message }, "Job failed");
+});
+
+process.on("unhandledRejection", (reason) => {
+  logger.error({ reason }, "Unhandled promise rejection");
+  Sentry.captureException(reason);
+});
+
+process.on("uncaughtException", (err) => {
+  logger.error({ err }, "Uncaught exception");
+  Sentry.captureException(err);
 });
 
 logger.info("Worker started, listening for jobs");
