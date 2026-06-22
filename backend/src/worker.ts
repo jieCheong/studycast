@@ -7,11 +7,11 @@ import { PipelineJobData } from "./lib/queue";
 import { pool } from "./db";
 import { s3, BUCKET_NAME } from "./lib/s3";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { geminiModel } from "./lib/gemini";
 import { openai } from "./lib/openai";
 import { logger } from "./lib/logger";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function streamToBuffer(stream: any): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of stream) {
@@ -139,6 +139,7 @@ const worker = new Worker<PipelineJobData>(
       for (const chunk of ttsChunks) {
         const response = await openai.audio.speech.create({
           model: "tts-1",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           voice: usedVoice as any,
           input: chunk,
           response_format: "mp3",
@@ -165,13 +166,16 @@ const worker = new Worker<PipelineJobData>(
       await job.updateProgress({ step: "complete", percent: 100 });
 
       return { success: true, outputId, s3Key };
-    } catch (err: any) {
-      logger.error({ jobId, err: err.message, stack: err.stack }, "Pipeline job failed");
+    } catch (err: unknown) {
+      const errMessage = err instanceof Error ? err.message : String(err);
+      const errStack = err instanceof Error ? err.stack : undefined;
+      logger.error({ jobId, err: errMessage, stack: errStack }, "Pipeline job failed");
       Sentry.captureException(err, { extra: { jobId, uploadId, userId } });
-      await updateJobStatus(jobId, "failed", err.message || String(err));
+      await updateJobStatus(jobId, "failed", errMessage);
       throw err; // re-throw so BullMQ marks it as failed and can retry
     }
   },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   { connection: redisConnection as any, concurrency: 2 } // process up to 2 jobs at once
 );
 

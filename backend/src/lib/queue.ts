@@ -11,7 +11,9 @@ export interface PipelineJobData {
   voice?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const pipelineQueue = new Queue<PipelineJobData, any, string>("ai-pipeline", {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   connection: redisConnection as any,
   defaultJobOptions: {
     attempts: 2, // retry once on failure

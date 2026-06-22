@@ -10,6 +10,7 @@ import { extractTextSchema } from "../schemas/jobs.schema";
 
 const router = Router();
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function streamToBuffer(stream: any): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of stream) {
