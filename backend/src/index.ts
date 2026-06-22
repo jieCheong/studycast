@@ -16,6 +16,7 @@ import jobsRouter from "./routes/jobs";
 import { logger } from "./lib/logger";
 import pinoHttp from "pino-http";
 import searchRouter from "./routes/search";
+import askRouter from "./routes/ask";
 
 dotenv.config();
 
@@ -49,6 +50,7 @@ app.use("/api/history", historyRouter);
 app.use("/api/profile", profileRouter);
 app.use("/api/jobs", jobsRouter);
 app.use("/api/search", searchRouter);
+app.use("/api/ask", askRouter);
 
 app.get("/api/me", requireAuth, (req: AuthRequest, res) => {
   res.json({ userId: req.userId });
