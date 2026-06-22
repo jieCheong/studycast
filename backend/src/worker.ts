@@ -12,6 +12,7 @@ import { openai } from "./lib/openai";
 import { logger } from "./lib/logger";
 import { generateEmbedding } from "./lib/openai";
 import { chunkTextForEmbedding } from "./lib/chunking";
+import { retrieveAllChunksOrdered, selectChunksWithinBudget } from "./lib/retrieval";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function streamToBuffer(stream: any): Promise<Buffer> {
@@ -127,16 +128,25 @@ const worker = new Worker<PipelineJobData>(
         logger.info({ jobId, chunkCount: textChunks.length }, "Embeddings generated and stored");
       }
 
-      // STEP 2: Generate script
+      // STEP 2: Generate script — using RAG retrieval instead of dumping full extracted text
       await job.updateProgress({ step: "generating-script", percent: 40 });
       logger.info({ jobId, step: "generating-script" }, "Job processing step");
+
+      const allChunks = await retrieveAllChunksOrdered(uploadId);
+      const budgetedChunks = selectChunksWithinBudget(allChunks, 12000);
+      const retrievedContext = budgetedChunks.map((c) => c.chunkText).join("\n\n");
+
+      logger.info(
+        { jobId, totalChunks: allChunks.length, usedChunks: budgetedChunks.length },
+        "Chunks selected for script generation"
+      );
 
       const systemPrompt = buildSystemPrompt(mode, language, parseInt(length));
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Source material:\n\n${extractedText}` },
+          { role: "user", content: `Source material:\n\n${retrievedContext}` },
         ],
         temperature: 0.7,
       });
