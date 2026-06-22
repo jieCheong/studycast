@@ -168,7 +168,7 @@ const worker = new Worker<PipelineJobData>(
       throw err; // re-throw so BullMQ marks it as failed and can retry
     }
   },
-  { connection: redisConnection, concurrency: 2 } // process up to 2 jobs at once
+  { connection: redisConnection as any, concurrency: 2 } // process up to 2 jobs at once
 );
 
 worker.on("completed", (job) => {

@@ -11,8 +11,8 @@ export interface PipelineJobData {
   voice?: string;
 }
 
-export const pipelineQueue = new Queue<PipelineJobData>("ai-pipeline", {
-  connection: redisConnection,
+export const pipelineQueue = new Queue<PipelineJobData, any, string>("ai-pipeline", {
+  connection: redisConnection as any,
   defaultJobOptions: {
     attempts: 2, // retry once on failure
     removeOnComplete: { age: 3600 }, // clean up completed jobs after 1hr
