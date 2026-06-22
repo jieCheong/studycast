@@ -10,6 +10,8 @@ import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { geminiModel } from "./lib/gemini";
 import { openai } from "./lib/openai";
 import { logger } from "./lib/logger";
+import { generateEmbedding } from "./lib/openai";
+import { chunkTextForEmbedding } from "./lib/chunking";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function streamToBuffer(stream: any): Promise<Buffer> {
@@ -103,6 +105,26 @@ const worker = new Worker<PipelineJobData>(
         if (!extractedText || extractedText.length < 50) throw new Error("Could not extract enough text");
 
         await pool.query("UPDATE uploads SET extracted_text = $1 WHERE id = $2", [extractedText, uploadId]);
+      }
+      await job.updateProgress({ step: "embedding", percent: 25 });
+      logger.info({ jobId, step: "embedding" }, "Job processing step");
+
+      const existingChunks = await pool.query("SELECT id FROM chunks WHERE upload_id = $1 LIMIT 1", [uploadId]);
+
+      if (existingChunks.rows.length === 0) {
+        const textChunks = chunkTextForEmbedding(extractedText);
+
+        for (let i = 0; i < textChunks.length; i++) {
+          const embedding = await generateEmbedding(textChunks[i]);
+          const embeddingString = `[${embedding.join(",")}]`;
+
+          await pool.query(
+            `INSERT INTO chunks (upload_id, user_id, chunk_text, chunk_index, embedding)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [uploadId, userId, textChunks[i], i, embeddingString]
+          );
+        }
+        logger.info({ jobId, chunkCount: textChunks.length }, "Embeddings generated and stored");
       }
 
       // STEP 2: Generate script
