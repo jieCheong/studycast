@@ -1,13 +1,11 @@
+import IORedis from "ioredis";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-const url = new URL(process.env.REDIS_URL as string);
+const isUpstash = process.env.REDIS_URL?.includes("upstash.io");
 
-export const redisConnection = {
-  host: url.hostname,
-  port: parseInt(url.port) || 6379,
-  password: url.password || undefined,
-  tls: url.protocol === "rediss:" ? {} : undefined,
-  maxRetriesPerRequest: null as null, // required by BullMQ
-};
+export const redisConnection = new IORedis(process.env.REDIS_URL as string, {
+  maxRetriesPerRequest: null,
+  tls: isUpstash ? {} : undefined,
+});

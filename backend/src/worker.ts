@@ -7,6 +7,7 @@ import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { geminiModel } from "./lib/gemini";
 import { openai } from "./lib/openai";
+import { logger } from "./lib/logger";
 
 async function streamToBuffer(stream: any): Promise<Buffer> {
   const chunks: Buffer[] = [];
@@ -68,7 +69,7 @@ const worker = new Worker<PipelineJobData>(
     try {
       // STEP 1: Extract text (skip if already extracted, e.g. for YouTube uploads)
       await job.updateProgress({ step: "extracting", percent: 10 });
-      console.log(`[Job ${jobId}] Step: extracting`);
+      logger.info({ jobId, step: "extracting" }, "Job processing step");
       await updateJobStatus(jobId, "processing");
 
       const uploadResult = await pool.query(
@@ -103,7 +104,7 @@ const worker = new Worker<PipelineJobData>(
 
       // STEP 2: Generate script
       await job.updateProgress({ step: "generating-script", percent: 40 });
-      console.log(`[Job ${jobId}] Step: generating-script`);
+      logger.info({ jobId, step: "generating-script" }, "Job processing step");
 
       const systemPrompt = buildSystemPrompt(mode, language, parseInt(length));
       const completion = await openai.chat.completions.create({
@@ -126,7 +127,7 @@ const worker = new Worker<PipelineJobData>(
 
       // STEP 3: Generate audio
       await job.updateProgress({ step: "generating-audio", percent: 70 });
-      console.log(`[Job ${jobId}] Step: generating-audio`);
+      logger.info({ jobId, step: "generating-audio" }, "Job processing step");
 
       const usedVoice = voice || "alloy";
       const ttsChunks = chunkTextForTTS(transcript);
@@ -162,7 +163,7 @@ const worker = new Worker<PipelineJobData>(
 
       return { success: true, outputId, s3Key };
     } catch (err: any) {
-      console.error(`Job ${jobId} failed:`, err);
+      logger.error({ jobId, err: err.message, stack: err.stack }, "Pipeline job failed");
       await updateJobStatus(jobId, "failed", err.message || String(err));
       throw err; // re-throw so BullMQ marks it as failed and can retry
     }
@@ -171,11 +172,11 @@ const worker = new Worker<PipelineJobData>(
 );
 
 worker.on("completed", (job) => {
-  console.log(`Job ${job.id} completed`);
+  logger.info({ jobId: job.id }, "Job completed");
 });
 
 worker.on("failed", (job, err) => {
-  console.error(`Job ${job?.id} failed:`, err.message);
+  logger.error({ jobId: job?.id, err: err.message }, "Job failed");
 });
 
-console.log("Worker started, listening for jobs...");
+logger.info("Worker started, listening for jobs");

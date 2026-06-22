@@ -10,6 +10,8 @@ import youtubeRouter from "./routes/youtube";
 import historyRouter from "./routes/history";
 import profileRouter from "./routes/profile";
 import jobsRouter from "./routes/jobs";
+import { logger } from "./lib/logger";
+import pinoHttp from "pino-http";
 
 dotenv.config();
 
@@ -19,6 +21,7 @@ const PORT = process.env.PORT || 3001;
 app.set("trust proxy", 1);
 app.use(cors());
 app.use(express.json());
+app.use(pinoHttp({ logger }));
 
 app.get("/health", (req: Request, res: Response) => {
     res.json({ status: "ok" });
@@ -29,7 +32,7 @@ app.get("/health-db", async (req: Request, res: Response) => {
         const result = await pool.query("SELECT NOW()");
         res.json({status: "ok", dbTime: result.rows[0].now});
     } catch (err) {
-        console.error("DB health check failed:", err);
+        logger.error({ err }, "DB health check failed");
         res.status(500).json({status:"error", message: "Database connection failed"});
     }
 });
@@ -47,5 +50,5 @@ app.get("/api/me", requireAuth, (req: AuthRequest, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    logger.info(`Server running on http://localhost:${PORT}`);
 });
