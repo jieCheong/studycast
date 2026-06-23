@@ -66,8 +66,15 @@ router.post("/", requireAuth, validateBody(youtubeSchema),async (req: AuthReques
       text: cappedText,
       length: cappedText.length,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("YouTube transcript error:", err);
+
+    if (err.name === "YoutubeTranscriptTooManyRequestError") {
+      return res.status(429).json({
+        error: "YouTube is temporarily rate-limiting transcript requests from our server. Please try again in a few minutes, or upload the video file directly instead.",
+      });
+    }
+
     return res.status(500).json({
       error: "Could not fetch this video's transcript. It may be private, age-restricted, or have captions disabled.",
     });
