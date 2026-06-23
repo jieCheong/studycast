@@ -145,7 +145,15 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 
   const pollJobStatus = (jobId: string): Promise<any> => {
   return new Promise((resolve, reject) => {
+    let attempts = 0;
+    const MAX_ATTEMPTS = 150; // 5 minutes at 2s intervals
     const interval = setInterval(async () => {
+      attempts++;
+      if (attempts > MAX_ATTEMPTS) {
+        clearInterval(interval);
+        reject(new Error("Generation timed out. Please try again."));
+        return;
+      }
       try {
         const data = await api.getJobStatus(jobId);
 
@@ -170,14 +178,17 @@ const handleGenerate = async () => {
   if (source === "pdf" && !file) return;
   if (source === "youtube" && !youtubeUrl.trim()) return;
 
+  setErrorMsg("");
+
   try {
     let uploadId: string;
 
-    setStatus("uploading");
     if (source === "youtube") {
+      setStatus("extracting");
       const uploadResult = await api.submitYoutubeUrl(youtubeUrl);
       uploadId = uploadResult.uploadId;
     } else {
+      setStatus("uploading");
       const uploadResult = await api.uploadFile(file!);
       uploadId = uploadResult.uploadId;
       setStatus("extracting");
