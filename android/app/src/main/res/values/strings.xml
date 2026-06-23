@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">StudyCast AI</string>
+    <string name="title_activity_main">StudyCast AI</string>
+    <string name="package_name">com.jc.studycast</string>
+    <string name="custom_url_scheme">com.jc.studycast</string>
+</resources>

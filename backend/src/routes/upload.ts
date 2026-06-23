@@ -11,16 +11,19 @@ const ALLOWED_MIME_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation", // .pptx
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+  "video/mp4",
+  "video/quicktime", // .mov
+  "video/webm",
 ];
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB
   fileFilter: (req, file, cb) => {
     if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Only PDF, PPTX, and DOCX files are supported"));
+      cb(new Error("Only PDF, PPTX, DOCX, MP4, MOV, and WEBM files are supported"));
     }
   },
 });

@@ -116,6 +116,9 @@ const ALLOWED_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
 ];
 
 const handleDrop = useCallback((e: React.DragEvent) => {
@@ -388,7 +391,7 @@ const handleGenerate = async () => {
                         <input
                           id="pdf-input"
                           type="file"
-                          accept=".pdf,.pptx,.docx"
+                          accept=".pdf,.pptx,.docx,.mp4,.mov,.webm"
                           className="hidden"
                           onChange={handleFileChange}
                         />

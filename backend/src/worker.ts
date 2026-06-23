@@ -13,6 +13,7 @@ import { logger } from "./lib/logger";
 import { generateEmbedding } from "./lib/openai";
 import { chunkTextForEmbedding } from "./lib/chunking";
 import { retrieveAllChunksOrdered, selectChunksWithinBudget } from "./lib/retrieval";
+import { transcribeVideoAudio } from "./lib/openai";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function streamToBuffer(stream: any): Promise<Buffer> {
@@ -90,21 +91,28 @@ const worker = new Worker<PipelineJobData>(
         const { file_path, filename } = uploadResult.rows[0];
         const s3Response = await s3.send(new GetObjectCommand({ Bucket: BUCKET_NAME, Key: file_path }));
         const fileBuffer = await streamToBuffer(s3Response.Body);
-        const base64File = fileBuffer.toString("base64");
 
-        let mimeType = "application/pdf";
         const lower = filename.toLowerCase();
-        if (lower.endsWith(".pptx")) mimeType = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-        else if (lower.endsWith(".docx")) mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        const isVideo = lower.endsWith(".mp4") || lower.endsWith(".mov") || lower.endsWith(".webm");
 
-        const geminiResult = await geminiModel.generateContent([
-          { inlineData: { mimeType, data: base64File } },
-          { text: "Extract ALL text content from this document. Return ONLY the extracted text, no commentary." },
-        ]);
+        if (isVideo) {
+          extractedText = (await transcribeVideoAudio(fileBuffer, filename)).trim().slice(0, 50000);
+        } else {
+          const base64File = fileBuffer.toString("base64");
 
-        extractedText = geminiResult.response.text().trim().slice(0, 50000);
+          let mimeType = "application/pdf";
+          if (lower.endsWith(".pptx")) mimeType = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+          else if (lower.endsWith(".docx")) mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+          const geminiResult = await geminiModel.generateContent([
+            { inlineData: { mimeType, data: base64File } },
+            { text: "Extract ALL text content from this document. Return ONLY the extracted text, no commentary." },
+          ]);
+
+          extractedText = geminiResult.response.text().trim().slice(0, 50000);
+        }
+
         if (!extractedText || extractedText.length < 50) throw new Error("Could not extract enough text");
-
         await pool.query("UPDATE uploads SET extracted_text = $1 WHERE id = $2", [extractedText, uploadId]);
       }
       await job.updateProgress({ step: "embedding", percent: 25 });
