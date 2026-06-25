@@ -7,7 +7,6 @@ import { PipelineJobData } from "./lib/queue";
 import { pool } from "./db";
 import { s3, BUCKET_NAME } from "./lib/s3";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import { geminiModel } from "./lib/gemini";
 import { openai } from "./lib/openai";
 import { logger } from "./lib/logger";
 import { generateEmbedding } from "./lib/openai";
@@ -114,18 +113,11 @@ const worker = new Worker<PipelineJobData>(
         if (isVideo) {
           extractedText = (await transcribeVideoAudio(fileBuffer, filename)).trim().slice(0, 50000);
         } else {
-          const base64File = fileBuffer.toString("base64");
-
-          let mimeType = "application/pdf";
-          if (lower.endsWith(".pptx")) mimeType = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-          else if (lower.endsWith(".docx")) mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-
-          const geminiResult = await geminiModel.generateContent([
-            { inlineData: { mimeType, data: base64File } },
-            { text: "Extract ALL text content from this document. Return ONLY the extracted text, no commentary." },
-          ]);
-
-          extractedText = geminiResult.response.text().trim().slice(0, 50000);
+          const { OfficeParser } = await import("officeparser");
+          const fileType = lower.endsWith(".pdf") ? "pdf"
+            : lower.endsWith(".pptx") ? "pptx"
+            : "docx";
+          extractedText = (await OfficeParser.parseOffice(fileBuffer, { fileType }) as unknown as string).trim().slice(0, 50000);
         }
 
         if (!extractedText || extractedText.length < 50) throw new Error("Could not extract enough text");

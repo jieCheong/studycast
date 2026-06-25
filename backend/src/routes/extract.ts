@@ -1,7 +1,6 @@
 import { Router, Response } from "express";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { s3, BUCKET_NAME } from "../lib/s3";
-import { geminiModel } from "../lib/gemini";
 import { pool } from "../db";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { OfficeParser } from "officeparser";
@@ -52,28 +51,12 @@ router.post("/", requireAuth, validateBody(extractTextSchema),async (req: AuthRe
       return res.json({ text: "", length: 0, skipped: true });
     }
 
-    let extractedText: string;
+    // officeparser handles pdf, pptx, and docx natively — no external API needed
+    const fileType = filename.endsWith(".pdf") ? "pdf"
+      : filename.endsWith(".pptx") ? "pptx"
+      : "docx";
 
-    if (filename.endsWith(".pdf")) {
-      // Gemini handles PDFs well (including scanned/image-based PDFs)
-      const base64File = fileBuffer.toString("base64");
-      const result = await geminiModel.generateContent([
-        { inlineData: { mimeType: "application/pdf", data: base64File } },
-        {
-          text: `Extract ALL text content from this document.
-Return ONLY the extracted text, preserving the logical structure and order of the content.
-Do not add commentary, summaries, or formatting like markdown.
-Do not include page numbers or headers/footers that repeat on every page.
-Just return the raw text content.`,
-        },
-      ]);
-      extractedText = result.response.text().trim();
-    } else {
-      // PPTX / DOCX — Gemini rejects these MIME types; use officeparser instead
-      const fileType = filename.endsWith(".pptx") ? "pptx" : "docx";
-      const ast = await OfficeParser.parseOffice(fileBuffer, { fileType });
-      extractedText = ((await ast.to("text")).value as string).trim();
-    }
+    const extractedText = (await OfficeParser.parseOffice(fileBuffer, { fileType }) as unknown as string).trim();
 
     if (!extractedText || extractedText.length < 50) {
       return res.status(422).json({
