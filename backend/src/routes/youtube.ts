@@ -1,5 +1,5 @@
 import { Router, Response } from "express";
-import { YoutubeTranscript } from "youtube-transcript";
+import { fetchYouTubeTranscript, YouTubeTranscriptError } from "../lib/youtube-transcript";
 import { pool } from "../db";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { validateBody } from "../middleware/validate";
@@ -21,7 +21,7 @@ function extractVideoId(url: string): string | null {
   return null;
 }
 
-router.post("/", requireAuth, validateBody(youtubeSchema),async (req: AuthRequest, res: Response) => {
+router.post("/", requireAuth, validateBody(youtubeSchema), async (req: AuthRequest, res: Response) => {
   const { youtubeUrl } = req.body;
   const userId = req.userId as string;
 
@@ -35,17 +35,9 @@ router.post("/", requireAuth, validateBody(youtubeSchema),async (req: AuthReques
   }
 
   try {
-    const transcriptSegments = await YoutubeTranscript.fetchTranscript(videoId);
+    const fullText = await fetchYouTubeTranscript(videoId);
 
-    if (!transcriptSegments || transcriptSegments.length === 0) {
-      return res.status(422).json({
-        error: "This video doesn't have captions available. Try a different video.",
-      });
-    }
-
-    const fullText = transcriptSegments.map((seg) => seg.text).join(" ").trim();
-
-    if (fullText.length < 50) {
+    if (!fullText || fullText.length < 50) {
       return res.status(422).json({
         error: "This video's transcript is too short to generate useful audio from.",
       });
@@ -69,10 +61,22 @@ router.post("/", requireAuth, validateBody(youtubeSchema),async (req: AuthReques
   } catch (err: any) {
     console.error("YouTube transcript error:", err);
 
-    if (err.name === "YoutubeTranscriptTooManyRequestError") {
-      return res.status(429).json({
-        error: "YouTube is temporarily rate-limiting transcript requests from our server. Please try again in a few minutes, or upload the video file directly instead.",
-      });
+    if (err instanceof YouTubeTranscriptError) {
+      if (err.code === "VIDEO_UNAVAILABLE") {
+        return res.status(422).json({
+          error: "This video is unavailable or private. Please check the URL and try again.",
+        });
+      }
+      if (err.code === "NO_CAPTIONS") {
+        return res.status(422).json({
+          error: "This video doesn't have captions available. Try a different video or upload the file directly.",
+        });
+      }
+      if (err.code === "NETWORK_ERROR") {
+        return res.status(503).json({
+          error: "Could not reach YouTube. Please check your connection and try again.",
+        });
+      }
     }
 
     return res.status(500).json({

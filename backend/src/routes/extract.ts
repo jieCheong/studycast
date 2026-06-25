@@ -46,6 +46,12 @@ router.post("/", requireAuth, validateBody(extractTextSchema),async (req: AuthRe
     const fileBuffer = await streamToBuffer(s3Response.Body);
     const filename = upload.filename.toLowerCase();
 
+    // Video files are transcribed by the worker via Whisper — skip extraction here
+    const VIDEO_EXTENSIONS = [".mp4", ".mov", ".webm"];
+    if (VIDEO_EXTENSIONS.some((ext) => filename.endsWith(ext))) {
+      return res.json({ text: "", length: 0, skipped: true });
+    }
+
     let extractedText: string;
 
     if (filename.endsWith(".pdf")) {
