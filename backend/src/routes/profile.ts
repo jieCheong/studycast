@@ -15,7 +15,8 @@ router.get("/", requireAuth, async (req: AuthRequest, res: Response) => {
       [userId]
     );
 
-    return res.json({ generationCount: parseInt(result.rows[0].count), freeLimit: 2 });
+    const freeLimit = parseInt(process.env.FREE_GENERATION_LIMIT ?? "2");
+    return res.json({ generationCount: parseInt(result.rows[0].count), freeLimit });
   } catch (err) {
     console.error("Profile fetch error:", err);
     return res.status(500).json({ error: "Failed to fetch profile" });

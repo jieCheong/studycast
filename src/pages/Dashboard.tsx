@@ -67,8 +67,6 @@ export default function Dashboard() {
   const [errorMsg, setErrorMsg] = useState("");
   const [transcript, setTranscript] = useState("");
   const [audioUrl, setAudioUrl] = useState("");
-  const [playbackRate, setPlaybackRate] = useState<string>("1");
-
   const [history, setHistory] = useState<any[]>([]);
   const [generationCount, setGenerationCount] = useState(0);
   const [freeLimit, setFreeLimit] = useState(2);
@@ -109,8 +107,8 @@ export default function Dashboard() {
   }, [status]);
 
   useEffect(() => {
-    if (audioRef.current) audioRef.current.playbackRate = parseFloat(playbackRate);
-  }, [playbackRate, audioUrl]);
+    if (audioRef.current) audioRef.current.playbackRate = playbackSpeed;
+  }, [playbackSpeed, audioUrl]);
 
 const ALLOWED_TYPES = [
   "application/pdf",
@@ -492,7 +490,7 @@ const handleGenerate = async () => {
                     <Button
                       className="w-full h-12 text-base gap-2"
                       onClick={handleGenerate}
-                      disabled={!canGenerate}
+                      disabled={!canGenerate || isProcessing}
                     >
                       <Headphones className="h-5 w-5" /> Generate Audio
                     </Button>

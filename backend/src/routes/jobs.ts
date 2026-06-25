@@ -25,13 +25,14 @@ router.post("/", requireAuth, validateBody(createJobSchema),async (req: AuthRequ
       return res.status(404).json({ error: "Upload not found" });
     }
 
-    // Check daily free-tier limit (your existing logic)
+    // Check daily free-tier limit — configurable via FREE_GENERATION_LIMIT env var
+    const freeLimit = parseInt(process.env.FREE_GENERATION_LIMIT ?? "2");
     const countResult = await pool.query(
-      `SELECT COUNT(*) as count FROM jobs 
+      `SELECT COUNT(*) as count FROM jobs
        WHERE user_id = $1 AND status = 'complete' AND created_at >= CURRENT_DATE`,
       [userId]
     );
-    if (parseInt(countResult.rows[0].count) >= 2) {
+    if (parseInt(countResult.rows[0].count) >= freeLimit) {
       return res.status(403).json({ error: "You've used all free generations for today." });
     }
 
