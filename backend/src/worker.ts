@@ -79,10 +79,26 @@ const worker = new Worker<PipelineJobData>(
       logger.info({ jobId, step: "extracting" }, "Job processing step");
       await updateJobStatus(jobId, "processing");
 
-      const uploadResult = await pool.query(
+      let uploadResult = await pool.query(
         "SELECT extracted_text, file_path, filename FROM uploads WHERE id = $1 AND user_id = $2",
         [uploadId, userId]
       );
+
+      // Retry with backoff to absorb potential replication lag between
+      // the API's write and this worker's read, especially relevant with
+      // serverless Postgres providers like Neon
+      let retries = 0;
+      const maxRetries = 3;
+      while (uploadResult.rows.length === 0 && retries < maxRetries) {
+        retries++;
+        logger.info({ jobId, uploadId, retries }, "Upload not found yet, retrying after delay");
+        await new Promise((resolve) => setTimeout(resolve, 500 * retries)); // 500ms, 1000ms, 1500ms
+        uploadResult = await pool.query(
+          "SELECT extracted_text, file_path, filename FROM uploads WHERE id = $1 AND user_id = $2",
+          [uploadId, userId]
+        );
+      }
+
       if (uploadResult.rows.length === 0) throw new Error("Upload not found");
 
       let extractedText = uploadResult.rows[0].extracted_text;
