@@ -105,6 +105,13 @@ export default function Auth() {
                 <Link to="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
               </p>
             )}
+            {!isSignUp && !isForgotPassword && (
+              <p className="text-xs text-muted-foreground text-center mt-3">
+                <Link to="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>
+                {" · "}
+                <Link to="/terms" className="underline hover:text-foreground">Terms of Service</Link>
+              </p>
+            )}
           </form>
           <div className="mt-4 text-center text-sm space-y-2">
             {!isForgotPassword && (
