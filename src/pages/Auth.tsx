@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -97,6 +97,14 @@ export default function Auth() {
                 ? "Sign Up"
                 : "Sign In"}
             </Button>
+            {isSignUp && (
+              <p className="text-xs text-muted-foreground text-center mt-3">
+                By signing up, you agree to our{" "}
+                <Link to="/terms" className="underline hover:text-foreground">Terms of Service</Link>
+                {" "}and{" "}
+                <Link to="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
+              </p>
+            )}
           </form>
           <div className="mt-4 text-center text-sm space-y-2">
             {!isForgotPassword && (
