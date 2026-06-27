@@ -114,16 +114,15 @@ const worker = new Worker<PipelineJobData>(
           extractedText = (await transcribeVideoAudio(fileBuffer, filename)).trim().slice(0, 50000);
         } else {
           const { OfficeParser } = await import("officeparser");
-          const fileType = lower.endsWith(".pdf") ? "pdf"
-            : lower.endsWith(".pptx") ? "pptx"
-            : "docx";
-          extractedText = (await OfficeParser.parseOffice(fileBuffer, { fileType }) as unknown as string).trim().slice(0, 50000);
+          const ast = await OfficeParser.parseOffice(fileBuffer);
+          extractedText = (await ast.to("text")).value.trim().slice(0, 50000);
         }
 
         if (!extractedText || extractedText.length < 50) throw new Error("Could not extract enough text");
         await pool.query("UPDATE uploads SET extracted_text = $1 WHERE id = $2", [extractedText, uploadId]);
       }
       await job.updateProgress({ step: "embedding", percent: 25 });
+      await updateJobStatus(jobId, "embedding");
       logger.info({ jobId, step: "embedding" }, "Job processing step");
 
       const existingChunks = await pool.query("SELECT id FROM chunks WHERE upload_id = $1 LIMIT 1", [uploadId]);
@@ -146,6 +145,7 @@ const worker = new Worker<PipelineJobData>(
 
       // STEP 2: Generate script — using RAG retrieval instead of dumping full extracted text
       await job.updateProgress({ step: "generating-script", percent: 40 });
+      await updateJobStatus(jobId, "generating-script");
       logger.info({ jobId, step: "generating-script" }, "Job processing step");
 
       const allChunks = await retrieveAllChunksOrdered(uploadId);
@@ -178,6 +178,7 @@ const worker = new Worker<PipelineJobData>(
 
       // STEP 3: Generate audio
       await job.updateProgress({ step: "generating-audio", percent: 70 });
+      await updateJobStatus(jobId, "generating-audio");
       logger.info({ jobId, step: "generating-audio" }, "Job processing step");
 
       const usedVoice = voice || "alloy";

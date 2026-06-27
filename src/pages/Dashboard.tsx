@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { api } from "@/lib/api";
 
-type JobStatus = "idle" | "uploading" | "extracting" | "generating-script" | "generating-audio" | "complete" | "failed";
+type JobStatus = "idle" | "uploading" | "extracting" | "embedding" | "generating-script" | "generating-audio" | "complete" | "failed";
 type SourceType = "pdf" | "youtube";
 
 
@@ -21,6 +21,7 @@ const statusLabels: Record<JobStatus, string> = {
   idle: "",
   uploading: "Uploading file...",
   extracting: "Extracting text...",
+  embedding: "Indexing content...",
   "generating-script": "Generating script with AI...",
   "generating-audio": "Creating audio...",
   complete: "Complete!",
@@ -31,6 +32,7 @@ const statusProgress: Record<JobStatus, number> = {
   idle: 0,
   uploading: 10,
   extracting: 25,
+  embedding: 35,
   "generating-script": 50,
   "generating-audio": 75,
   complete: 100,
@@ -141,6 +143,8 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 
   const limitReached = generationCount >= freeLimit;
 
+  const WORKER_STEPS = new Set<string>(["embedding", "generating-script", "generating-audio"]);
+
   const pollJobStatus = (jobId: string): Promise<any> => {
   return new Promise((resolve, reject) => {
     let attempts = 0;
@@ -161,8 +165,10 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         } else if (data.status === "failed") {
           clearInterval(interval);
           reject(new Error(data.errorMessage || "Generation failed"));
+        } else if (WORKER_STEPS.has(data.status)) {
+          setStatus(data.status as JobStatus);
         }
-        // else: still queued/processing, keep polling
+        // else: queued/processing/extracting — keep polling without updating status
       } catch (err) {
         clearInterval(interval);
         reject(err);

@@ -51,12 +51,8 @@ router.post("/", requireAuth, validateBody(extractTextSchema),async (req: AuthRe
       return res.json({ text: "", length: 0, skipped: true });
     }
 
-    // officeparser handles pdf, pptx, and docx natively — no external API needed
-    const fileType = filename.endsWith(".pdf") ? "pdf"
-      : filename.endsWith(".pptx") ? "pptx"
-      : "docx";
-
-    const extractedText = (await OfficeParser.parseOffice(fileBuffer, { fileType }) as unknown as string).trim();
+    const ast = await OfficeParser.parseOffice(fileBuffer);
+    const extractedText = (await ast.to("text")).value.trim();
 
     if (!extractedText || extractedText.length < 50) {
       return res.status(422).json({
