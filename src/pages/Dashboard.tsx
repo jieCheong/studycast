@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText, Headphones, Download, LogOut, RotateCcw, X, Video as YoutubeIcon, History } from "lucide-react";
+import { Upload, FileText, Headphones, Download, LogOut, RotateCcw, X, Video as YoutubeIcon, History, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -77,6 +78,7 @@ export default function Dashboard() {
   const resultsRef = useRef<HTMLDivElement>(null);
   const audioCardRef = useRef<HTMLDivElement>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const handleSpeedChange = (speed: number) => {
     setPlaybackSpeed(speed);
@@ -541,6 +543,54 @@ const handleGenerate = async () => {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Delete Account */}
+              <div className="pt-4 pb-2 text-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-2"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4" /> Delete Account
+                </Button>
+              </div>
+
+              <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Delete Your Account</DialogTitle>
+                    <DialogDescription className="pt-2 space-y-3">
+                      <span className="block">
+                        Account deletion is handled via email to keep things simple and verifiable.
+                        To request deletion of your account and all associated data, send an email to:
+                      </span>
+                      <span className="block font-medium text-foreground">
+                        testemail07077@gmail.com
+                      </span>
+                      <span className="block">
+                        Use the subject line <span className="font-medium text-foreground">Account Deletion Request</span> and include the email address associated with your account. We'll process your request and delete your data promptly.
+                      </span>
+                      <span className="block text-xs">
+                        For more details on what data we hold and how deletion works, see our{" "}
+                        <a href="/privacy" className="underline text-primary" target="_blank" rel="noreferrer">Privacy Policy</a>.
+                      </span>
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter className="gap-2 sm:gap-0">
+                    <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+                      Cancel
+                    </Button>
+                    <a
+                      href="mailto:testemail07077@gmail.com?subject=Account%20Deletion%20Request&body=Please%20delete%20my%20account%20associated%20with%20this%20email%20address."
+                    >
+                      <Button variant="destructive" className="gap-2" onClick={() => setShowDeleteDialog(false)}>
+                        <Trash2 className="h-4 w-4" /> Open Email
+                      </Button>
+                    </a>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </motion.div>
           )}
         </AnimatePresence>
