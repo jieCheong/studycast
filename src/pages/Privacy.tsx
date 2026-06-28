@@ -103,7 +103,7 @@ export default function Privacy() {
         <p>
           If you have questions about this Privacy Policy or wish to request data deletion, contact
           us at:{" "}
-          <a href="mailto:cheongjie05@gmail.com">cheongjie05@gmail.com</a>
+          <a href="mailto:testemail07077@gmail.com">testemail07077@gmail.com</a>
         </p>
       </main>
     </div>

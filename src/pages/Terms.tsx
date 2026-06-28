@@ -108,7 +108,7 @@ export default function Terms() {
         <h2>Contact Us</h2>
         <p>
           If you have questions about these Terms of Service, contact us at:{" "}
-          <a href="mailto:cheongjie05@gmail.com">cheongjie05@gmail.com</a>
+          <a href="mailto:testemail07077@gmail.com">testemail07077@gmail.com</a>
         </p>
       </main>
     </div>
