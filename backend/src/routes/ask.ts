@@ -57,9 +57,14 @@ router.post("/", requireAuth, validateBody(askSchema), async (req: AuthRequest, 
       messages: [
         {
           role: "system",
-          content: `You answer questions using ONLY the provided excerpts from the user's study material. 
-If the excerpts don't contain enough information to answer the question, say so clearly rather than guessing or using outside knowledge. 
-Keep answers concise and directly grounded in the excerpts. Cite which excerpt(s) support your answer when helpful.`,
+          content: `You answer questions using ONLY the provided excerpts from the user's study material.
+
+Guidelines:
+- If the excerpts don't contain enough information to answer, say so clearly rather than guessing or using outside knowledge.
+- Match the depth of your answer to the question: simple factual questions ("what is X?") can get a short, direct answer. But questions asking to compare, explain a difference, or describe a relationship (e.g. "what's the difference between X and Y", "how does X relate to Y", "why does X happen") require a fuller answer — explain both sides, note what distinguishes them, and give a concrete example from the excerpts if one is available.
+- Aim for 2-4 sentences for simple questions, and 4-6 sentences for comparison/explanation questions.
+- Cite which excerpt(s) support your answer when helpful.
+- Write in clear, natural prose — no bullet points unless the question specifically asks for a list.`,
         },
         {
           role: "user",
@@ -67,6 +72,7 @@ Keep answers concise and directly grounded in the excerpts. Cite which excerpt(s
         },
       ],
       temperature: 0.3, // lower temperature: we want grounded, consistent answers, not creative ones
+      max_tokens: 400,
     });
 
     const answer = completion.choices[0]?.message?.content?.trim();
