@@ -8,9 +8,9 @@ services:
       POSTGRES_PASSWORD: localdevpassword
       POSTGRES_DB: studycast
     ports:
-     - "5432:5432"
+      - "5432:5432"
     volumes:
-     - studycast_pgdata:/var/lib/postgresql/data
+      - studycast_pgdata:/var/lib/postgresql/data
 
   redis:
     image: redis:7
@@ -20,6 +20,48 @@ services:
       - "6379:6379"
     volumes:
       - studycast_redisdata:/data
+
+  backend:
+    build: ./backend
+    container_name: studycast-backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://studycast:localdevpassword@postgres:5432/studycast
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      - postgres
+      - redis
+
+  worker:
+    build: ./backend
+    container_name: studycast-worker
+    restart: unless-stopped
+    command: node dist/worker.js
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://studycast:localdevpassword@postgres:5432/studycast
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      - postgres
+      - redis
+
 volumes:
   studycast_pgdata:
   studycast_redisdata:

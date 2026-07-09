@@ -225,7 +225,7 @@ const worker = new Worker<PipelineJobData>(
     }
   },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  { connection: redisConnection as any, concurrency: 2 } // process up to 2 jobs at once
+  { connection: redisConnection as any, concurrency: 1 } // temporarily reduced to 1 during quota recovery
 );
 
 worker.on("completed", (job) => {
