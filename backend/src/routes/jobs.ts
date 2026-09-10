@@ -4,6 +4,7 @@ import { requireAuth, AuthRequest } from "../middleware/auth";
 import { pipelineQueue } from "../lib/queue";
 import { validateBody } from "../middleware/validate";
 import { createJobSchema } from "../schemas/jobs.schema";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -58,7 +59,7 @@ router.post("/", requireAuth, validateBody(createJobSchema),async (req: AuthRequ
     // Respond immediately — the worker handles everything from here
     return res.status(202).json({ jobId, status: "queued" });
   } catch (err) {
-    console.error("Job creation error:", err);
+    logger.error({ err }, "Job creation error");
     return res.status(500).json({ error: "Failed to create job" });
   }
 });
@@ -102,7 +103,7 @@ router.get("/:id/status", requireAuth, async (req: AuthRequest, res: Response) =
       audioUrl,
     });
   } catch (err) {
-    console.error("Job status fetch error:", err);
+    logger.error({ err }, "Job status fetch error");
     return res.status(500).json({ error: "Failed to fetch job status" });
   }
 });

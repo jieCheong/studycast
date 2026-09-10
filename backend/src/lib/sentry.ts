@@ -1,11 +1,12 @@
 import * as Sentry from "@sentry/node";
 import dotenv from "dotenv";
+import { logger } from "./logger";
 
 dotenv.config();
 
 export function initSentry() {
   if (!process.env.SENTRY_DSN) {
-    console.warn("SENTRY_DSN not set — error tracking disabled");
+    logger.warn("SENTRY_DSN not set — error tracking disabled");
     return;
   }
 

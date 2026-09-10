@@ -4,6 +4,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3, BUCKET_NAME } from "../lib/s3";
 import { pool } from "../db";
 import { requireAuth, AuthRequest } from "../middleware/auth";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -55,7 +56,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res: Response) => {
 
     return res.json({ history });
   } catch (err) {
-    console.error("History fetch error:", err);
+    logger.error({ err }, "History fetch error");
     return res.status(500).json({ error: "Failed to fetch history" });
   }
 });

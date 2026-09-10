@@ -6,6 +6,7 @@ import { requireAuth, AuthRequest } from "../middleware/auth";
 import { OfficeParser } from "officeparser";
 import { validateBody } from "../middleware/validate";
 import { extractTextSchema } from "../schemas/jobs.schema";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -69,7 +70,7 @@ router.post("/", requireAuth, validateBody(extractTextSchema),async (req: AuthRe
 
     return res.json({ text: cappedText, length: cappedText.length });
   } catch (err) {
-    console.error("Extraction error:", err);
+    logger.error({ err }, "Extraction error");
     return res.status(500).json({ error: "Failed to extract text from file" });
   }
 });

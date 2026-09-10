@@ -3,6 +3,7 @@ import { requireAuth, AuthRequest } from "../middleware/auth";
 import { retrieveRelevantChunks } from "../lib/retrieval";
 import { pool } from "../db";
 import { validateBody } from "../middleware/validate";
+import { logger } from "../lib/logger";
 import { z } from "zod";
 
 const router = Router();
@@ -28,7 +29,7 @@ router.post("/", requireAuth, validateBody(searchSchema), async (req: AuthReques
 
         return res.json({ query, results: chunks });
     } catch (err) {
-        console.error("Search error:", err);
+        logger.error({ err }, "Search error");
         return res.status(500).json({ error: "Search failed" });
     }
 });

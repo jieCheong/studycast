@@ -4,6 +4,7 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { s3, BUCKET_NAME } from "../lib/s3";
 import { pool } from "../db";
 import { requireAuth, AuthRequest } from "../middleware/auth";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -61,7 +62,7 @@ router.post("/", requireAuth, upload.single("file"), async (req: AuthRequest, re
       filePath: s3Key,
     });
   } catch (err) {
-    console.error("Upload error:", err);
+    logger.error({ err }, "Upload error");
     return res.status(500).json({ error: "Failed to upload file" });
   }
 });

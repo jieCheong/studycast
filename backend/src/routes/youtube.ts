@@ -4,6 +4,7 @@ import { pool } from "../db";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { validateBody } from "../middleware/validate";
 import { youtubeSchema } from "../schemas/jobs.schema";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -59,7 +60,7 @@ router.post("/", requireAuth, validateBody(youtubeSchema), async (req: AuthReque
       length: cappedText.length,
     });
   } catch (err: any) {
-    console.error("YouTube transcript error:", err);
+    logger.error({ err }, "YouTube transcript error");
 
     if (err instanceof YouTubeTranscriptError) {
       if (err.code === "VIDEO_UNAVAILABLE") {

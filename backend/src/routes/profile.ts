@@ -1,6 +1,7 @@
 import { Router, Response } from "express";
 import { pool } from "../db";
 import { requireAuth, AuthRequest } from "../middleware/auth";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -18,7 +19,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res: Response) => {
     const freeLimit = parseInt(process.env.FREE_GENERATION_LIMIT ?? "2");
     return res.json({ generationCount: parseInt(result.rows[0].count), freeLimit });
   } catch (err) {
-    console.error("Profile fetch error:", err);
+    logger.error({ err }, "Profile fetch error");
     return res.status(500).json({ error: "Failed to fetch profile" });
   }
 });

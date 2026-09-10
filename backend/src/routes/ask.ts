@@ -4,6 +4,7 @@ import { retrieveRelevantChunks } from "../lib/retrieval";
 import { pool } from "../db";
 import { openai } from "../lib/openai";
 import { validateBody } from "../middleware/validate";
+import { logger } from "../lib/logger";
 import { z } from "zod";
 
 const router = Router();
@@ -88,7 +89,7 @@ Guidelines:
       belowThreshold: false,
     });
   } catch (err) {
-    console.error("Ask error:", err);
+    logger.error({ err }, "Ask error");
     return res.status(500).json({ error: "Failed to answer question" });
   }
 });

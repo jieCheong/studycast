@@ -10,6 +10,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { authRateLimiter } from "../middleware/rateLimit";
 import { validateBody } from "../middleware/validate";
+import { logger } from "../lib/logger";
 import { signupSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema } from "../schemas/auth.schema";
 
 const router = Router();
@@ -44,7 +45,7 @@ router.post("/signup", validateBody(signupSchema),authRateLimiter, async (req: R
             createdAt: newUser.created_at,
         });
     } catch (err) {
-        console.error("Signup error: ", err);
+        logger.error({ err }, "Signup error");
         return res.status(500).json({error: "Something went wrong creating your account"});
     }
 });
@@ -82,7 +83,7 @@ router.post("/login", validateBody(loginSchema), authRateLimiter, async (req: Re
       user: { id: user.id, email: user.email },
     });
   } catch (err) {
-    console.error("Login error:", err);
+    logger.error({ err }, "Login error");
     return res.status(500).json({ error: "Something went wrong logging in" });
   }
 });
@@ -110,11 +111,11 @@ router.post("/forgot-password", validateBody(forgotPasswordSchema),authRateLimit
     );
 
     // No email service yet — log the link so you can test the flow manually
-    console.log(`Password reset link for ${normalizedEmail}: http://localhost:5173/reset-password?token=${token}`);
+    logger.info({ email: normalizedEmail }, `Password reset link: http://localhost:5173/reset-password?token=${token}`);
 
     return res.json({ message: "If that email is registered, a reset link has been sent." });
   } catch (err) {
-    console.error("Forgot-password error:", err);
+    logger.error({ err }, "Forgot-password error");
     return res.status(500).json({ error: "Something went wrong" });
   }
 });
@@ -148,7 +149,7 @@ router.post("/reset-password", validateBody(resetPasswordSchema),async (req: Req
 
     return res.json({ message: "Password has been reset successfully" });
   } catch (err) {
-    console.error("Reset-password error:", err);
+    logger.error({ err }, "Reset-password error");
     return res.status(500).json({ error: "Something went wrong" });
   }
 });
