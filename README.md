@@ -14,27 +14,64 @@ StudyCast AI converts PDFs, slide decks, lecture videos, and YouTube URLs into p
 [![PostgreSQL](https://img.shields.io/badge/Postgres-pgvector-6D5EF8?style=flat-square&logo=postgresql&logoColor=white)](#tech-stack)
 [![Redis](https://img.shields.io/badge/Redis-BullMQ-6D5EF8?style=flat-square&logo=redis&logoColor=white)](#tech-stack)
 
-[**Live App**](https://studycast-livid.vercel.app) · [**Demo Video**](#) · [**Android (Closed Testing)**](#)
-
 </div>
 
 <br/>
 
 ## Screenshots
 
-<div align="center">
 <table>
 <tr>
-<td width="33%"><img src="docs/screenshots/mobile-landing.png" alt="Landing page on mobile" width="100%"/><br/><sub align="center">Landing — mobile</sub></td>
-<td width="33%"><img src="docs/screenshots/mobile-audio-ready.png" alt="Generated audio player on mobile" width="100%"/><br/><sub>Audio ready — mobile</sub></td>
-<td width="34%"><img src="docs/screenshots/desktop-create.png" alt="Create Study Audio configuration panel" width="100%"/><br/><sub>Create Study Audio</sub></td>
+<td width="45%"><img src="docs/screenshots/mobile-landing.png" alt="Landing page on mobile" width="100%"/></td>
+<td width="55%" valign="middle">
+
+**Landing — mobile**
+
+The landing screen leads with the core pitch — turning study material into podcast-style audio — behind a single primary action. Built mobile-first, since the actual use case (listening while walking, commuting, or at the gym) happens on a phone, not a desktop.
+
+</td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/screenshots/desktop-landing.png" alt="Landing page on desktop" width="100%"/><br/><sub>Landing — desktop</sub></td>
-<td width="50%"><img src="docs/screenshots/desktop-audio-ready.png" alt="Generated audio and transcript on desktop" width="100%"/><br/><sub>Audio + transcript — desktop</sub></td>
+<td width="45%"><img src="docs/screenshots/mobile-audio-ready.png" alt="Generated audio player on mobile" width="100%"/></td>
+<td width="55%" valign="middle">
+
+**Audio ready — mobile**
+
+Once a job finishes, the player, playback-speed control, and MP3 download are available immediately, with the full transcript scrollable underneath. This particular result was generated directly from a YouTube URL — no PDF involved.
+
+</td>
+</tr>
+<tr>
+<td width="45%"><img src="docs/screenshots/desktop-landing.png" alt="Landing page and How it works section on desktop" width="100%"/></td>
+<td width="55%" valign="middle">
+
+**Landing — desktop**
+
+The desktop view adds the three-step flow — Upload, Customize, Listen — so the product is legible from a single screenshot, not just after clicking around.
+
+</td>
+</tr>
+<tr>
+<td width="45%"><img src="docs/screenshots/desktop-create.png" alt="Create Study Audio configuration panel" width="100%"/></td>
+<td width="55%" valign="middle">
+
+**Create Study Audio**
+
+This is where a job actually gets configured: source file, study mode (e.g. Understanding vs. exam prep), language, target length, and voice style — all of which feed the worker pipeline's script-generation prompt. Past generations are listed below for quick re-access.
+
+</td>
+</tr>
+<tr>
+<td width="45%"><img src="docs/screenshots/desktop-audio-ready.png" alt="Generated audio and transcript on desktop" width="100%"/></td>
+<td width="55%" valign="middle">
+
+**Audio + transcript — desktop**
+
+The result view pairs the generated audio — with speed control and MP3 download — against the full transcript below it, so narration can be checked against the source material at a glance.
+
+</td>
 </tr>
 </table>
-</div>
 
 <br/>
 
