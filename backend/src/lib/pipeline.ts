@@ -18,7 +18,7 @@ async function streamToBuffer(stream: any): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-function chunkTextForTTS(text: string, maxChars = 4096): string[] {
+export function chunkTextForTTS(text: string, maxChars = 4096): string[] {
   const chunks: string[] = [];
   let remaining = text;
   while (remaining.length > 0) {
@@ -34,7 +34,7 @@ function chunkTextForTTS(text: string, maxChars = 4096): string[] {
   return chunks;
 }
 
-function buildSystemPrompt(mode: string, language: string, lengthMinutes: number): string {
+export function buildSystemPrompt(mode: string, language: string, lengthMinutes: number): string {
   const wordsPerMinute = 150;
   const targetWords = lengthMinutes * wordsPerMinute;
 
