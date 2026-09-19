@@ -11,6 +11,8 @@
     "migrate:down": "node -r dotenv/config node_modules/node-pg-migrate/bin/node-pg-migrate.js down",
     "migrate:create": "node node_modules/node-pg-migrate/bin/node-pg-migrate.js create",
     "worker": "nodemon --watch src --ext ts --exec ts-node src/worker.ts",
+    "eval:retrieval": "ts-node --transpile-only src/eval/eval-retrieval.ts",
+    "eval:pipeline-latency": "ts-node --transpile-only src/eval/pipeline-latency.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src"
